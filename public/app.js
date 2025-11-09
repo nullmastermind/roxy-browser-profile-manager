@@ -75,6 +75,9 @@ function renderProfiles(data) {
       </td>
       <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200">${formatDate(profile.createdAt)}</td>
       <td class="px-4 py-2 text-sm font-medium">
+        <button class="backup-to-btn text-green-600 hover:text-green-900 font-medium mr-3" data-profile-id="${escapeHtml(profile.profileId)}">
+          Backup To
+        </button>
         <button class="restore-btn text-blue-600 hover:text-blue-900 font-medium mr-3" data-profile-id="${escapeHtml(profile.profileId)}">
           Restore
         </button>
@@ -92,6 +95,10 @@ function renderProfiles(data) {
       clearTimeout(timeout);
       timeout = setTimeout(() => updateDescription(e.target), 1000);
     });
+  });
+
+  document.querySelectorAll('.backup-to-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => openBackupModalWithTarget(e.target.dataset.profileId));
   });
 
   document.querySelectorAll('.restore-btn').forEach((btn) => {
@@ -178,6 +185,56 @@ async function openBackupModal() {
       option.textContent = profile.profileId;
       targetSelect.appendChild(option);
     });
+  } catch (error) {
+    console.error('Error fetching profiles:', error);
+    showToast(`Failed to load profiles: ${error.message}`, 'error');
+    modal.classList.add('hidden');
+  }
+}
+
+async function openBackupModalWithTarget(targetProfileId) {
+  const modal = document.getElementById('backupModal');
+  const sourceSelect = document.getElementById('profileSelect');
+  const targetSelect = document.getElementById('targetProfileSelect');
+
+  modal.classList.remove('hidden');
+  sourceSelect.innerHTML = '<option value="">Loading...</option>';
+  targetSelect.innerHTML = '<option value="">Loading...</option>';
+
+  try {
+    const [availableResponse, backedUpResponse] = await Promise.all([
+      fetch('/api/available-profiles'),
+      fetch('/api/profiles?page=1&pageSize=1000'),
+    ]);
+
+    const availableProfiles = await availableResponse.json();
+    const backedUpData = await backedUpResponse.json();
+
+    if (!availableResponse.ok) {
+      throw new Error(availableProfiles.error || 'Failed to fetch available profiles');
+    }
+
+    if (!backedUpResponse.ok) {
+      throw new Error(backedUpData.error || 'Failed to fetch backed up profiles');
+    }
+
+    sourceSelect.innerHTML = '<option value="">Select a source profile</option>';
+    availableProfiles.forEach((profile) => {
+      const option = document.createElement('option');
+      option.value = profile.name;
+      option.textContent = profile.name;
+      sourceSelect.appendChild(option);
+    });
+
+    targetSelect.innerHTML = '<option value="">Create new backup</option>';
+    backedUpData.profiles.forEach((profile) => {
+      const option = document.createElement('option');
+      option.value = profile.profileId;
+      option.textContent = profile.profileId;
+      targetSelect.appendChild(option);
+    });
+
+    targetSelect.value = targetProfileId;
   } catch (error) {
     console.error('Error fetching profiles:', error);
     showToast(`Failed to load profiles: ${error.message}`, 'error');
