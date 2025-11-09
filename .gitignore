@@ -91,3 +91,9 @@ auggie_shell.sh
 
 dist
 .idea
+
+/generated/prisma
+
+# Prisma SQLite database
+prisma/*.db
+prisma/*.db-journal
