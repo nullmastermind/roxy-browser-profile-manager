@@ -86,3 +86,8 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+auggie_shell.ps1
+auggie_shell.sh
+
+dist
+.idea
