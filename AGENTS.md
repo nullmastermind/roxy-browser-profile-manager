@@ -28,3 +28,8 @@
   Linting:
     "Lint Command": ALWAYS run `bun run lint` at root directory after writing code to ensure code quality.
     Linter: "Linter: biome. NEVER run --unsafe, manually fix all errors."
+  Prisma:
+    "Schema Location": The Prisma schema file is located at `prisma/schema.prisma` in the project root.
+    "Migration Requirement": "ALWAYS run `bun run prisma:migrate` after ANY modification to the Prisma schema file (prisma/schema.prisma). This is MANDATORY to sync database changes."
+    "Migration Workflow": "After editing schema: 1) Save schema changes, 2) Run `bun run prisma:migrate`, 3) Verify migration success before proceeding."
+    "Schema Best Practices": "Design database schema following Data Structures First principle. Plan all models, relations, and fields before implementation. Keep schema changes atomic and well-documented in migration names."
