@@ -2,6 +2,37 @@ let currentPage = 1;
 const pageSize = 20;
 let currentRestoreProfileId = '';
 
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add('hiding');
+    setTimeout(() => {
+      container.removeChild(toast);
+    }, 300);
+  }, 3000);
+}
+
+function setButtonLoading(button, isLoading) {
+  const textSpan = button.querySelector('.btn-text');
+  if (isLoading) {
+    button.disabled = true;
+    const spinner = document.createElement('span');
+    spinner.className = 'spinner';
+    button.insertBefore(spinner, textSpan);
+  } else {
+    button.disabled = false;
+    const spinner = button.querySelector('.spinner');
+    if (spinner) {
+      button.removeChild(spinner);
+    }
+  }
+}
+
 async function fetchProfiles(page = 1) {
   try {
     const response = await fetch(`/api/profiles?page=${page}&pageSize=${pageSize}`);
@@ -16,7 +47,7 @@ async function fetchProfiles(page = 1) {
     currentPage = page;
   } catch (error) {
     console.error('Error fetching profiles:', error);
-    alert(`Failed to load profiles: ${error.message}`);
+    showToast(`Failed to load profiles: ${error.message}`, 'error');
   }
 }
 
@@ -26,24 +57,25 @@ function renderProfiles(data) {
 
   if (data.profiles.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="4" class="px-6 py-4 text-center text-gray-500">No profiles found</td></tr>';
+      '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500 border-b border-gray-200">No profiles found</td></tr>';
     return;
   }
 
   data.profiles.forEach((profile) => {
     const row = document.createElement('tr');
+    row.className = 'border-b border-gray-200 hover:bg-gray-50';
     row.innerHTML = `
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${escapeHtml(profile.profileId)}</td>
-      <td class="px-6 py-4 text-sm text-gray-500">
+      <td class="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200">${escapeHtml(profile.profileId)}</td>
+      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200">
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
                data-profile-id="${escapeHtml(profile.profileId)}"
-               class="description-input w-full px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+               class="description-input w-full px-2 py-1 border border-gray-300 focus:outline-none focus:border-blue-500"
                placeholder="Add description">
       </td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${formatDate(profile.createdAt)}</td>
-      <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-        <button class="restore-btn text-blue-600 hover:text-blue-900" data-profile-id="${escapeHtml(profile.profileId)}">
+      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200">${formatDate(profile.createdAt)}</td>
+      <td class="px-4 py-2 text-sm font-medium">
+        <button class="restore-btn text-blue-600 hover:text-blue-900 font-medium" data-profile-id="${escapeHtml(profile.profileId)}">
           Restore
         </button>
       </td>
@@ -94,7 +126,7 @@ async function updateDescription(input) {
     setTimeout(() => input.classList.remove('border-green-500'), 2000);
   } catch (error) {
     console.error('Error updating description:', error);
-    alert(`Failed to update description: ${error.message}`);
+    showToast(`Failed to update description: ${error.message}`, 'error');
   }
 }
 
@@ -122,7 +154,7 @@ async function openBackupModal() {
     });
   } catch (error) {
     console.error('Error fetching available profiles:', error);
-    alert(`Failed to load available profiles: ${error.message}`);
+    showToast(`Failed to load available profiles: ${error.message}`, 'error');
     modal.classList.add('hidden');
   }
 }
@@ -136,11 +168,14 @@ function closeBackupModal() {
 async function confirmBackup() {
   const profileId = document.getElementById('profileSelect').value;
   const description = document.getElementById('descriptionInput').value;
+  const confirmBtn = document.getElementById('confirmBackupBtn');
 
   if (!profileId) {
-    alert('Please select a profile');
+    showToast('Please select a profile', 'error');
     return;
   }
+
+  setButtonLoading(confirmBtn, true);
 
   try {
     const response = await fetch('/api/backup', {
@@ -155,12 +190,14 @@ async function confirmBackup() {
       throw new Error(data.error || 'Failed to backup profile');
     }
 
-    alert('Profile backed up successfully!');
+    showToast('Profile backed up successfully!');
     closeBackupModal();
     fetchProfiles(currentPage);
   } catch (error) {
     console.error('Error backing up profile:', error);
-    alert(`Failed to backup profile: ${error.message}`);
+    showToast(`Failed to backup profile: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(confirmBtn, false);
   }
 }
 
@@ -191,7 +228,7 @@ async function openRestoreModal(profileId) {
     });
   } catch (error) {
     console.error('Error fetching available profiles:', error);
-    alert(`Failed to load available profiles: ${error.message}`);
+    showToast(`Failed to load available profiles: ${error.message}`, 'error');
     modal.classList.add('hidden');
   }
 }
@@ -204,39 +241,58 @@ function closeRestoreModal() {
 
 async function confirmRestore() {
   const targetFolderId = document.getElementById('targetFolderSelect').value;
+  const confirmBtn = document.getElementById('confirmRestoreBtn');
 
   if (!targetFolderId) {
-    alert('Please select a target folder');
+    showToast('Please select a target folder', 'error');
     return;
   }
 
-  if (
-    !confirm(
-      `Are you sure you want to restore to ${targetFolderId}? This will delete the existing folder.`,
-    )
-  ) {
-    return;
-  }
+  const confirmModal = document.createElement('div');
+  confirmModal.className =
+    'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center';
+  confirmModal.innerHTML = `
+    <div class="bg-white border border-gray-400 p-4 max-w-md">
+      <h3 class="text-lg font-medium text-gray-900 mb-3 pb-2 border-b border-gray-300">Confirm Restore</h3>
+      <p class="text-sm text-gray-700 mb-4">Are you sure you want to restore to ${escapeHtml(targetFolderId)}? This will delete the existing folder.</p>
+      <div class="flex gap-2 justify-end pt-2 border-t border-gray-300">
+        <button id="cancelConfirm" class="px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">Cancel</button>
+        <button id="proceedConfirm" class="px-3 py-1.5 bg-red-600 text-white border border-red-700 hover:bg-red-700">Proceed</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(confirmModal);
 
-  try {
-    const response = await fetch('/api/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profileId: currentRestoreProfileId, targetFolderId }),
-    });
+  confirmModal.querySelector('#cancelConfirm').addEventListener('click', () => {
+    document.body.removeChild(confirmModal);
+  });
 
-    const data = await response.json();
+  confirmModal.querySelector('#proceedConfirm').addEventListener('click', async () => {
+    document.body.removeChild(confirmModal);
+    setButtonLoading(confirmBtn, true);
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to restore profile');
+    try {
+      const response = await fetch('/api/restore', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profileId: currentRestoreProfileId, targetFolderId }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to restore profile');
+      }
+
+      showToast('Profile restored successfully!');
+      closeRestoreModal();
+    } catch (error) {
+      console.error('Error restoring profile:', error);
+      showToast(`Failed to restore profile: ${error.message}`, 'error');
+    } finally {
+      setButtonLoading(confirmBtn, false);
     }
-
-    alert('Profile restored successfully!');
-    closeRestoreModal();
-  } catch (error) {
-    console.error('Error restoring profile:', error);
-    alert(`Failed to restore profile: ${error.message}`);
-  }
+  });
 }
 
 function formatDate(dateString) {
