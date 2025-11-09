@@ -41,6 +41,14 @@
       "Migration Requirement": "ALWAYS run `bun run prisma:migrate` after ANY modification to the Prisma schema file (prisma/schema.prisma). This is MANDATORY to sync database changes.",
       "Migration Workflow": "After editing schema: 1) Save schema changes, 2) Run `bun run prisma:migrate`, 3) Verify migration success before proceeding.",
       "Schema Best Practices": "Design database schema following Data Structures First principle. Plan all models, relations, and fields before implementation. Keep schema changes atomic and well-documented in migration names."
+    },
+    "UI Design": {
+      "Design Philosophy": "Use simple, clean, and dense UI design. Prioritize functionality and space efficiency over decorative elements.",
+      "Visual Style": "NEVER use box-shadow for UI elements. ALWAYS use borders to define component boundaries and visual separation. Keep design minimal and functional.",
+      "Layout Requirements": "ALWAYS use full-screen layout with NO whitespace/padding on the body element. Maximize usable screen space for content.",
+      "User Feedback": "NEVER use alert() or browser native dialogs for success messages - they create poor UX by blocking user interaction. ALWAYS use non-blocking toast notifications or inline feedback messages for success/error states.",
+      "Interactive States": "ALL action buttons (submit, save, delete, etc.) MUST implement loading states. Show visual feedback (spinner, disabled state, loading text) during async operations to inform users that action is in progress.",
+      "Density": "Prefer compact, information-dense layouts. Reduce unnecessary spacing between elements while maintaining readability and usability."
     }
   }
 }
