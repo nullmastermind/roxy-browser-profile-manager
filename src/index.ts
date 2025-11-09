@@ -4,7 +4,12 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { config } from './config.js';
 import { getProfiles, updateProfileDescription } from './database.js';
-import { backupProfile, getAvailableProfiles, restoreProfile } from './profileService.js';
+import {
+  backupProfile,
+  deleteBackupProfile,
+  getAvailableProfiles,
+  restoreProfile,
+} from './profileService.js';
 import type {
   BackupRequest,
   ErrorResponse,
@@ -26,7 +31,7 @@ app.get('/api/profiles', async (req, res) => {
     const page = Number.parseInt(req.query.page as string, 10) || 1;
     const pageSize = Number.parseInt(req.query.pageSize as string, 10) || 20;
 
-    if (page < 1 || pageSize < 1 || pageSize > 100) {
+    if (page < 1 || pageSize < 1 || pageSize > 10000) {
       return res.status(400).json({ error: 'Invalid pagination parameters' } as ErrorResponse);
     }
 
@@ -77,14 +82,22 @@ app.get('/api/available-profiles', async (_req, res) => {
 
 app.post('/api/backup', async (req, res) => {
   try {
-    const { profileId, description } = req.body as BackupRequest;
+    const { sourceProfileId, targetProfileId, description } = req.body as BackupRequest;
 
-    if (!profileId || typeof profileId !== 'string') {
-      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    if (!sourceProfileId || typeof sourceProfileId !== 'string') {
+      return res.status(400).json({ error: 'Source Profile ID is required' } as ErrorResponse);
     }
 
-    await backupProfile(profileId, description);
-    res.json({ success: true, message: 'Profile backed up successfully' });
+    if (targetProfileId !== undefined && typeof targetProfileId !== 'string') {
+      return res.status(400).json({ error: 'Target Profile ID must be a string' } as ErrorResponse);
+    }
+
+    const resultProfileId = await backupProfile(sourceProfileId, targetProfileId, description);
+    res.json({
+      success: true,
+      message: 'Profile backed up successfully',
+      profileId: resultProfileId,
+    });
   } catch (error) {
     console.error('Error backing up profile:', error);
     const message = error instanceof Error ? error.message : 'Failed to backup profile';
@@ -109,6 +122,23 @@ app.post('/api/restore', async (req, res) => {
   } catch (error) {
     console.error('Error restoring profile:', error);
     const message = error instanceof Error ? error.message : 'Failed to restore profile';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.delete('/api/profiles/:id', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+
+    if (!profileId || typeof profileId !== 'string') {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+
+    await deleteBackupProfile(profileId);
+    res.json({ success: true, message: 'Profile deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting profile:', error);
+    const message = error instanceof Error ? error.message : 'Failed to delete profile';
     res.status(500).json({ error: message } as ErrorResponse);
   }
 });

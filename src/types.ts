@@ -18,7 +18,8 @@ export interface AvailableProfile {
 }
 
 export interface BackupRequest {
-  profileId: string;
+  sourceProfileId: string;
+  targetProfileId?: string;
   description?: string;
 }
 
