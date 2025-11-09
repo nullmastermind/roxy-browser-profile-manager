@@ -32,7 +32,9 @@
     },
     "Linting": {
       "Lint Command": "ALWAYS run `bun run lint` at root directory after writing code to ensure code quality.",
-      "Linter": "Linter: biome. NEVER run --unsafe, manually fix all errors."
+      "Linter": "Linter: biome. NEVER run --unsafe, manually fix all errors.",
+      "Build Requirement": "ALWAYS run `bun run build` after linting is complete to ensure code compiles successfully. Fix all build errors before considering the task complete.",
+      "Workflow": "1) Write code, 2) Run `bun run lint` and fix all errors, 3) Run `bun run build` and fix all build errors, 4) Verify success."
     },
     "Prisma": {
       "Schema Location": "The Prisma schema file is located at `prisma/schema.prisma` in the project root.",
