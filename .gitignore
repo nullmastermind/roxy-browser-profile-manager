@@ -102,3 +102,6 @@ prisma/prisma/*.db-journal
 
 # RoxyBrowser Profile Backups
 backup-profiles/
+
+# Compiled executable
+*.exe

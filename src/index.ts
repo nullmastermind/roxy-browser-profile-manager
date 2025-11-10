@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { exec } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
@@ -31,7 +33,25 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+
+// Determine the correct public directory path
+// When running from compiled executable (Bun.main is the executable path)
+// use current working directory, otherwise use relative path from __dirname
+const isCompiled = Bun.main.endsWith('.exe') || Bun.main.includes('roxy-browser-profile-manager');
+const publicPath = isCompiled
+  ? path.join(process.cwd(), 'public')
+  : path.join(__dirname, '../public');
+
+console.log('Public path:', publicPath);
+console.log('Public path exists:', fs.existsSync(publicPath));
+
+// Check if public folder exists and warn if not
+if (!fs.existsSync(publicPath)) {
+  console.warn('WARNING: Public folder not found at:', publicPath);
+  console.warn('Please ensure the "public" folder is in the same directory as the executable.');
+}
+
+app.use(express.static(publicPath));
 
 app.get('/api/profiles', async (req, res) => {
   try {
@@ -205,6 +225,72 @@ app.delete('/api/profiles/:id/tags/:tagId', async (req, res) => {
   }
 });
 
+// Fallback route for root path if static files are not found
+app.get('/', (_req, res) => {
+  const indexPath = path.join(publicPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(500).send(`
+      <html>
+        <head><title>Error - Public Folder Missing</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
+          <h1 style="color: #dc2626;">Error: Public Folder Not Found</h1>
+          <p>The application cannot find the required <code>public</code> folder.</p>
+          <h2>To fix this issue:</h2>
+          <ol>
+            <li>Ensure the <code>public</code> folder exists in the same directory as the executable</li>
+            <li>The <code>public</code> folder should contain:
+              <ul>
+                <li><code>index.html</code></li>
+                <li><code>app.js</code></li>
+              </ul>
+            </li>
+          </ol>
+          <h3>Current Configuration:</h3>
+          <ul>
+            <li><strong>Expected public path:</strong> <code>${publicPath}</code></li>
+            <li><strong>Public folder exists:</strong> ${fs.existsSync(publicPath) ? 'Yes' : 'No'}</li>
+            <li><strong>index.html exists:</strong> ${fs.existsSync(indexPath) ? 'Yes' : 'No'}</li>
+            <li><strong>Current working directory:</strong> <code>${process.cwd()}</code></li>
+            <li><strong>Executable path:</strong> <code>${Bun.main}</code></li>
+          </ul>
+        </body>
+      </html>
+    `);
+  }
+});
+
+function openBrowser(url: string) {
+  const platform = process.platform;
+  let command: string;
+
+  switch (platform) {
+    case 'win32':
+      command = `start ${url}`;
+      break;
+    case 'darwin':
+      command = `open ${url}`;
+      break;
+    case 'linux':
+      command = `xdg-open ${url}`;
+      break;
+    default:
+      console.log(`Please open your browser and navigate to ${url}`);
+      return;
+  }
+
+  exec(command, (error) => {
+    if (error) {
+      console.error('Failed to open browser automatically:', error.message);
+      console.log(`Please open your browser and navigate to ${url}`);
+    }
+  });
+}
+
 app.listen(config.port, () => {
-  console.log(`Server is running on http://localhost:${config.port}`);
+  const url = `http://localhost:${config.port}`;
+  console.log(`Server is running on ${url}`);
+  console.log('Opening browser...');
+  openBrowser(url);
 });
