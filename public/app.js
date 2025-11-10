@@ -580,27 +580,61 @@ async function confirmDeleteProfile(profileId) {
 }
 
 async function openAddTagModal(profileId) {
-  const tagName = prompt('Enter tag name:');
-  if (!tagName || tagName.trim() === '') {
+  const tagInput = prompt('Enter tag name(s) (separate multiple tags with commas):');
+  if (!tagInput || tagInput.trim() === '') {
+    return;
+  }
+
+  const tagNames = tagInput
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter((tag) => tag !== '');
+
+  if (tagNames.length === 0) {
     return;
   }
 
   try {
-    const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/tags`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tagName: tagName.trim() }),
-    });
+    let successCount = 0;
+    let failCount = 0;
+    const errors = [];
 
-    const data = await response.json();
+    for (const tagName of tagNames) {
+      try {
+        const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/tags`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tagName }),
+        });
 
-    if (!response.ok) {
-      throw new Error(data.error || 'Failed to add tag');
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to add tag');
+        }
+
+        successCount++;
+      } catch (error) {
+        failCount++;
+        errors.push(`${tagName}: ${error.message}`);
+      }
     }
 
-    showToast('Tag added successfully!');
-    fetchProfiles(currentPage);
-    fetchTags();
+    if (successCount > 0) {
+      const message =
+        tagNames.length === 1
+          ? 'Tag added successfully!'
+          : `${successCount} tag(s) added successfully!`;
+      showToast(message);
+      fetchProfiles(currentPage);
+      fetchTags();
+    }
+
+    if (failCount > 0) {
+      const errorMessage =
+        failCount === 1 ? `Failed to add tag: ${errors[0]}` : `Failed to add ${failCount} tag(s)`;
+      showToast(errorMessage, 'error');
+    }
   } catch (error) {
     console.error('Error adding tag:', error);
     showToast(`Failed to add tag: ${error.message}`, 'error');
