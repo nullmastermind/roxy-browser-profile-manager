@@ -91,7 +91,11 @@ function renderTags(tags) {
 }
 
 function filterByTag(tagId) {
-  currentTagFilter = tagId;
+  if (currentTagFilter === tagId) {
+    currentTagFilter = null;
+  } else {
+    currentTagFilter = tagId;
+  }
   currentPage = 1;
   fetchProfiles(1);
   fetchTags();
@@ -121,14 +125,19 @@ function renderProfiles(data) {
     const tagsHtml =
       profile.tags && profile.tags.length > 0
         ? profile.tags
-            .map(
-              (tag) => `
-          <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 border border-blue-300 mr-1 mb-1">
-            ${escapeHtml(tag.name)}
+            .map((tag) => {
+              const isActive = currentTagFilter === tag.id;
+              const tagClasses = isActive
+                ? 'inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-600 text-white border border-blue-700 mr-1 mb-1 cursor-pointer hover:bg-blue-700'
+                : 'inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 border border-blue-300 mr-1 mb-1 cursor-pointer hover:bg-blue-200';
+
+              return `
+          <span class="${tagClasses}" data-tag-id="${tag.id}" data-tag-name="${escapeHtml(tag.name)}">
+            <span class="tag-name-clickable">${escapeHtml(tag.name)}</span>
             <button class="remove-tag-btn hover:text-red-600" data-profile-id="${escapeHtml(profile.profileId)}" data-tag-id="${tag.id}" title="Remove tag">×</button>
           </span>
-        `,
-            )
+        `;
+            })
             .join('')
         : '';
 
@@ -191,6 +200,17 @@ function renderProfiles(data) {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       removeTag(e.target.dataset.profileId, e.target.dataset.tagId);
+    });
+  });
+
+  document.querySelectorAll('.tag-name-clickable').forEach((tagNameSpan) => {
+    tagNameSpan.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const tagSpan = e.target.closest('[data-tag-id]');
+      if (tagSpan) {
+        const tagId = Number.parseInt(tagSpan.dataset.tagId, 10);
+        filterByTag(tagId);
+      }
     });
   });
 }
