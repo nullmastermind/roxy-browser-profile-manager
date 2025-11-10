@@ -1,7 +1,12 @@
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { config } from './config.js';
-import { createProfile, deleteProfile, getProfileById } from './database.js';
+import {
+  createProfile,
+  deleteProfile,
+  getProfileById,
+  updateProfileDescription,
+} from './database.js';
 import {
   copyDirectory,
   deleteDirectory,
@@ -51,6 +56,9 @@ export async function backupProfile(
   await copyDirectory(sourcePath, destinationPath);
 
   if (existingProfile) {
+    if (description !== undefined && description.trim() !== '') {
+      await updateProfileDescription(finalTargetProfileId, description);
+    }
     return finalTargetProfileId;
   }
 

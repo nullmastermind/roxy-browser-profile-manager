@@ -97,6 +97,8 @@ dist
 # Prisma SQLite database
 prisma/*.db
 prisma/*.db-journal
+prisma/prisma/*.db
+prisma/prisma/*.db-journal
 
 # RoxyBrowser Profile Backups
 backup-profiles/
