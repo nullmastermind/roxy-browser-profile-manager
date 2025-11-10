@@ -8,10 +8,13 @@ import { config } from './config.js';
 import {
   assignTagToProfile,
   getAllTags,
+  getProfileById,
   getProfiles,
   removeTagFromProfile,
+  updateProfileBackupSize,
   updateProfileDescription,
 } from './database.js';
+import { getDirectorySize } from './fileUtils.js';
 import {
   backupProfile,
   calculateTotalBackupSize,
@@ -34,6 +37,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 
 app.use(express.json());
+
+// Custom JSON serializer to handle BigInt
+app.set('json replacer', (_key: string, value: unknown) => {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+  return value;
+});
 
 // Determine the correct public directory path
 // When running from compiled executable (Bun.main is the executable path)
@@ -122,6 +133,33 @@ app.patch('/api/profiles/:id', async (req, res) => {
   } catch (error) {
     console.error('Error updating profile:', error);
     res.status(500).json({ error: 'Failed to update profile' } as ErrorResponse);
+  }
+});
+
+app.post('/api/profiles/:id/recalculate-size', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+
+    if (!profileId || typeof profileId !== 'string') {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+
+    const profile = await getProfileById(profileId);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' } as ErrorResponse);
+    }
+
+    const backupPath = path.join(config.backupFolderPath, profileId);
+    const backupSize = await getDirectorySize(backupPath);
+    const backupSizeInBytes = BigInt(backupSize);
+
+    await updateProfileBackupSize(profileId, backupSizeInBytes);
+
+    res.json({ backupSizeInBytes: backupSizeInBytes.toString() });
+  } catch (error) {
+    console.error('Error recalculating profile size:', error);
+    const message = error instanceof Error ? error.message : 'Failed to recalculate profile size';
+    res.status(500).json({ error: message } as ErrorResponse);
   }
 });
 

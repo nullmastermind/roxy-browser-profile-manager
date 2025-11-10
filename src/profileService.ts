@@ -5,6 +5,7 @@ import {
   createProfile,
   deleteProfile,
   getProfileById,
+  updateProfileBackupSize,
   updateProfileDescription,
 } from './database.js';
 import {
@@ -56,14 +57,20 @@ export async function backupProfile(
 
   await copyDirectory(sourcePath, destinationPath);
 
+  // Calculate backup size after copying
+  const backupSize = await getDirectorySize(destinationPath);
+  const backupSizeInBytes = BigInt(backupSize);
+
   if (existingProfile) {
     if (description !== undefined && description.trim() !== '') {
       await updateProfileDescription(finalTargetProfileId, description);
     }
+    // Update backup size
+    await updateProfileBackupSize(finalTargetProfileId, backupSizeInBytes);
     return finalTargetProfileId;
   }
 
-  await createProfile(finalTargetProfileId, description);
+  await createProfile(finalTargetProfileId, description, backupSizeInBytes);
   return finalTargetProfileId;
 }
 

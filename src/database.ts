@@ -106,11 +106,13 @@ export async function getProfileById(profileId: string): Promise<ProfileRecord |
 export async function createProfile(
   profileId: string,
   description?: string,
+  backupSizeInBytes?: bigint,
 ): Promise<ProfileRecord> {
   return await prisma.profile.create({
     data: {
       profileId,
       description: description || null,
+      backupSizeInBytes: backupSizeInBytes || null,
     },
   });
 }
@@ -122,6 +124,16 @@ export async function updateProfileDescription(
   return await prisma.profile.update({
     where: { profileId },
     data: { description },
+  });
+}
+
+export async function updateProfileBackupSize(
+  profileId: string,
+  backupSizeInBytes: bigint,
+): Promise<ProfileRecord> {
+  return await prisma.profile.update({
+    where: { profileId },
+    data: { backupSizeInBytes },
   });
 }
 

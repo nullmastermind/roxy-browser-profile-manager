@@ -203,7 +203,7 @@ function renderProfiles(data) {
   tbody.innerHTML = '';
 
   if (data.profiles.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" class="px-3 py-2 text-center" style="color: var(--text-secondary); border-bottom: 1px solid var(--border-secondary); font-size: 11px;">// NO_PROFILES_FOUND</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-2 text-center" style="color: var(--text-secondary); border-bottom: 1px solid var(--border-secondary); font-size: 11px;">// NO_PROFILES_FOUND</td></tr>`;
     return;
   }
 
@@ -237,8 +237,8 @@ function renderProfiles(data) {
         : '';
 
     row.innerHTML = `
-      <td class="px-3 py-1" style="color: var(--text-primary); border-right: 1px solid var(--border-secondary); width: 15%; font-size: 11px; font-weight: bold;">${escapeHtml(profile.profileId)}</td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 30%;">
+      <td class="px-3 py-1" style="color: var(--text-primary); border-right: 1px solid var(--border-secondary); width: 12%; font-size: 11px; font-weight: bold;">${escapeHtml(profile.profileId)}</td>
+      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 25%;">
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
                data-profile-id="${escapeHtml(profile.profileId)}"
@@ -246,14 +246,18 @@ function renderProfiles(data) {
                style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary); font-size: 11px;"
                placeholder="description...">
       </td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 15%;">
+      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 13%;">
         <div class="flex flex-wrap items-center gap-1">
           ${tagsHtml}
           <button class="add-tag-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Add tag" style="border: 1px solid var(--border-primary); background-color: var(--bg-secondary); color: var(--text-tertiary); padding: 2px 6px; font-size: 10px;">[+]</button>
         </div>
       </td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 15%; font-size: 10px;">${formatDate(profile.createdAt)}</td>
-      <td class="px-3 py-1" style="width: 25%; font-size: 10px;">
+      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 10%; font-size: 10px;">
+        <span class="size-value" data-profile-id="${escapeHtml(profile.profileId)}">${formatSize(profile.backupSizeInBytes)}</span>
+        <span class="refresh-size-icon" data-profile-id="${escapeHtml(profile.profileId)}" title="Recalculate size" style="cursor: pointer; margin-left: 4px; font-size: 14px; color: var(--text-tertiary);">↻</span>
+      </td>
+      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 13%; font-size: 10px;">${formatDate(profile.createdAt)}</td>
+      <td class="px-3 py-1" style="width: 27%; font-size: 10px;">
         <button class="backup-to-btn mr-2" data-profile-id="${escapeHtml(profile.profileId)}" style="color: var(--console-green); background: none; border: none; padding: 0; font-weight: bold;">
           [BACKUP]
         </button>
@@ -307,6 +311,12 @@ function renderProfiles(data) {
         const tagId = Number.parseInt(tagSpan.dataset.tagId, 10);
         toggleTagFilter(tagId);
       }
+    });
+  });
+
+  document.querySelectorAll('.refresh-size-icon').forEach((icon) => {
+    icon.addEventListener('click', (e) => {
+      recalculateProfileSize(e.target.dataset.profileId);
     });
   });
 }
@@ -607,6 +617,62 @@ function formatDate(dateString) {
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day}_${hours}:${minutes}:${seconds}`;
+}
+
+function formatSize(backupSizeInBytes) {
+  if (backupSizeInBytes === null || backupSizeInBytes === undefined) {
+    return 'N/A';
+  }
+  // Convert BigInt to Number for calculation
+  const sizeInBytes =
+    typeof backupSizeInBytes === 'bigint' ? Number(backupSizeInBytes) : backupSizeInBytes;
+  const sizeInMB = (sizeInBytes / (1024 * 1024)).toFixed(2);
+  return `${sizeInMB} MB`;
+}
+
+async function recalculateProfileSize(profileId) {
+  const icon = document.querySelector(`.refresh-size-icon[data-profile-id="${profileId}"]`);
+  const sizeValue = document.querySelector(`.size-value[data-profile-id="${profileId}"]`);
+
+  if (!icon || !sizeValue) {
+    return;
+  }
+
+  // Add loading state
+  const originalIcon = icon.textContent;
+  icon.textContent = '⟳';
+  icon.style.cursor = 'wait';
+  icon.style.pointerEvents = 'none';
+
+  try {
+    const response = await fetch(
+      `/api/profiles/${encodeURIComponent(profileId)}/recalculate-size`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to recalculate size');
+    }
+
+    // Update the size display
+    const sizeInBytes = BigInt(data.backupSizeInBytes);
+    sizeValue.textContent = formatSize(sizeInBytes);
+
+    showToast('Size recalculated successfully!');
+  } catch (error) {
+    console.error('Error recalculating size:', error);
+    showToast(`Failed to recalculate size: ${error.message}`, 'error');
+  } finally {
+    // Restore icon state
+    icon.textContent = originalIcon;
+    icon.style.cursor = 'pointer';
+    icon.style.pointerEvents = 'auto';
+  }
 }
 
 function escapeHtml(text) {

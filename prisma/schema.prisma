@@ -20,11 +20,12 @@ model User {
 }
 
 model Profile {
-  profileId   String        @id
-  description String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  tags        ProfileTag[]
+  profileId         String        @id
+  description       String?
+  backupSizeInBytes BigInt?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  tags              ProfileTag[]
 }
 
 model Tag {

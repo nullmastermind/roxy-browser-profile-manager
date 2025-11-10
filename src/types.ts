@@ -7,6 +7,7 @@ export interface TagRecord {
 export interface ProfileRecord {
   profileId: string;
   description: string | null;
+  backupSizeInBytes: bigint | null;
   createdAt: Date;
   updatedAt: Date;
   tags?: TagRecord[];
