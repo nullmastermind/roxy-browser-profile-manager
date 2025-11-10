@@ -14,6 +14,7 @@ import {
 } from './database.js';
 import {
   backupProfile,
+  calculateTotalBackupSize,
   deleteBackupProfile,
   getAvailableProfiles,
   restoreProfile,
@@ -248,6 +249,16 @@ app.delete('/api/profiles/:id/tags/:tagId', async (req, res) => {
     console.error('Error removing tag:', error);
     const message = error instanceof Error ? error.message : 'Failed to remove tag';
     res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/backup-size', async (_req, res) => {
+  try {
+    const totalSizeBytes = await calculateTotalBackupSize();
+    res.json({ totalSizeBytes });
+  } catch (error) {
+    console.error('Error calculating backup size:', error);
+    res.status(500).json({ error: 'Failed to calculate backup size' } as ErrorResponse);
   }
 });
 

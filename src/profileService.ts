@@ -13,6 +13,7 @@ import {
   directoryExists,
   ensureDirectoryExists,
   getDirectoryFolders,
+  getDirectorySize,
 } from './fileUtils.js';
 
 function generateRandomProfileId(): string {
@@ -102,4 +103,15 @@ export async function deleteBackupProfile(profileId: string): Promise<void> {
   }
 
   await deleteProfile(profileId);
+}
+
+export async function calculateTotalBackupSize(): Promise<number> {
+  const backupPath = config.backupFolderPath;
+
+  const backupExists = await directoryExists(backupPath);
+  if (!backupExists) {
+    return 0;
+  }
+
+  return await getDirectorySize(backupPath);
 }

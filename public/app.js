@@ -750,6 +750,33 @@ async function removeTag(profileId, tagId) {
   }
 }
 
+async function calculateTotalSize() {
+  const calculateBtn = document.getElementById('calculateSizeBtn');
+  setButtonLoading(calculateBtn, true);
+
+  try {
+    const response = await fetch('/api/backup-size');
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to calculate backup size');
+    }
+
+    const totalSizeBytes = data.totalSizeBytes;
+    const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(2);
+    const totalSizeGB = (totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2);
+
+    const message = `Total Backup Size: ${totalSizeMB} MB (${totalSizeGB} GB)`;
+    showToast(message);
+  } catch (error) {
+    console.error('Error calculating total size:', error);
+    showToast(`Failed to calculate total size: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(calculateBtn, false);
+  }
+}
+
+document.getElementById('calculateSizeBtn').addEventListener('click', calculateTotalSize);
 document.getElementById('backupBtn').addEventListener('click', openBackupModal);
 document.getElementById('cancelBackupBtn').addEventListener('click', closeBackupModal);
 document.getElementById('confirmBackupBtn').addEventListener('click', confirmBackup);

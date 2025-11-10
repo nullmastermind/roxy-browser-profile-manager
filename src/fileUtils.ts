@@ -53,3 +53,26 @@ export async function directoryExists(dirPath: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function getDirectorySize(dirPath: string): Promise<number> {
+  let totalSize = 0;
+
+  try {
+    const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+
+      if (entry.isDirectory()) {
+        totalSize += await getDirectorySize(fullPath);
+      } else {
+        const stats = await fs.stat(fullPath);
+        totalSize += stats.size;
+      }
+    }
+  } catch (error) {
+    console.error(`Failed to calculate size for ${dirPath}:`, error);
+  }
+
+  return totalSize;
+}
