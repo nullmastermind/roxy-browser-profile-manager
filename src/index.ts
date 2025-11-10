@@ -60,11 +60,36 @@ app.get('/api/profiles', async (req, res) => {
     const tagId = req.query.tagId ? Number.parseInt(req.query.tagId as string, 10) : undefined;
     const search = req.query.search ? (req.query.search as string) : undefined;
 
+    // Parse multiple tag IDs and filter mode
+    let tagIds: number[] | undefined;
+    if (req.query.tagIds) {
+      const tagIdsParam = req.query.tagIds as string;
+      tagIds = tagIdsParam
+        .split(',')
+        .map((id) => Number.parseInt(id.trim(), 10))
+        .filter((id) => !Number.isNaN(id));
+      if (tagIds.length === 0) {
+        tagIds = undefined;
+      }
+    }
+
+    const tagFilterMode =
+      req.query.tagFilterMode === 'AND' || req.query.tagFilterMode === 'OR'
+        ? (req.query.tagFilterMode as 'AND' | 'OR')
+        : 'OR';
+
     if (page < 1 || pageSize < 1 || pageSize > 10000) {
       return res.status(400).json({ error: 'Invalid pagination parameters' } as ErrorResponse);
     }
 
-    const { profiles, total } = await getProfiles(page, pageSize, tagId, search);
+    const { profiles, total } = await getProfiles(
+      page,
+      pageSize,
+      tagId,
+      search,
+      tagIds,
+      tagFilterMode,
+    );
     const totalPages = Math.ceil(total / pageSize);
 
     const response: PaginatedProfilesResponse = {

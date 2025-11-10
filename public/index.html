@@ -95,8 +95,16 @@
       </div>
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-sm font-medium text-gray-700">Filter by tag:</span>
+        <div class="flex items-center gap-1 border border-gray-400 bg-white">
+          <button id="tagFilterModeAnd" class="px-2 py-1 text-xs bg-blue-600 text-white border-r border-gray-400 hover:bg-blue-700">
+            AND
+          </button>
+          <button id="tagFilterModeOr" class="px-2 py-1 text-xs bg-white text-gray-700 hover:bg-gray-100">
+            OR
+          </button>
+        </div>
         <button id="clearTagFilter" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">
-          All
+          Clear
         </button>
         <div id="tagsList" class="flex gap-2 flex-wrap">
         </div>

@@ -8,12 +8,41 @@ export async function getProfiles(
   pageSize: number,
   tagId?: number,
   search?: string,
+  tagIds?: number[],
+  tagFilterMode?: 'AND' | 'OR',
 ): Promise<{ profiles: ProfileRecord[]; total: number }> {
   const skip = (page - 1) * pageSize;
 
   const whereConditions: any[] = [];
 
-  if (tagId) {
+  // Handle multiple tag filtering with AND/OR conditions
+  if (tagIds && tagIds.length > 0) {
+    if (tagFilterMode === 'AND') {
+      // For AND: profile must have ALL specified tags
+      // This requires the profile to have at least as many tag associations as requested
+      whereConditions.push({
+        AND: tagIds.map((id) => ({
+          tags: {
+            some: {
+              tagId: id,
+            },
+          },
+        })),
+      });
+    } else {
+      // For OR: profile must have ANY of the specified tags
+      whereConditions.push({
+        tags: {
+          some: {
+            tagId: {
+              in: tagIds,
+            },
+          },
+        },
+      });
+    }
+  } else if (tagId) {
+    // Backward compatibility: single tag filter
     whereConditions.push({
       tags: {
         some: {

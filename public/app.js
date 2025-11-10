@@ -3,6 +3,8 @@ const pageSize = 20;
 let currentRestoreProfileId = '';
 let currentTagFilter = null;
 let currentSearchQuery = '';
+let currentTagFilters = []; // Array of selected tag IDs for multiple tag filtering
+let currentTagFilterMode = 'AND'; // 'OR' or 'AND'
 
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
@@ -38,9 +40,15 @@ function setButtonLoading(button, isLoading) {
 async function fetchProfiles(page = 1) {
   try {
     let url = `/api/profiles?page=${page}&pageSize=${pageSize}`;
-    if (currentTagFilter !== null) {
+
+    // Use multiple tag filtering if available, otherwise fall back to single tag filter
+    if (currentTagFilters.length > 0) {
+      url += `&tagIds=${currentTagFilters.join(',')}`;
+      url += `&tagFilterMode=${currentTagFilterMode}`;
+    } else if (currentTagFilter !== null) {
       url += `&tagId=${currentTagFilter}`;
     }
+
     if (currentSearchQuery && currentSearchQuery.trim() !== '') {
       url += `&search=${encodeURIComponent(currentSearchQuery.trim())}`;
     }
@@ -82,23 +90,27 @@ function renderTags(tags) {
 
   tags.forEach((tag) => {
     const button = document.createElement('button');
+    const isSelected = currentTagFilters.includes(tag.id);
     button.className = `px-2 py-1 text-xs border ${
-      currentTagFilter === tag.id
+      isSelected
         ? 'bg-blue-600 text-white border-blue-700'
         : 'bg-white text-gray-700 border-gray-400 hover:bg-gray-100'
     }`;
     button.textContent = tag.name;
     button.dataset.tagId = tag.id;
-    button.addEventListener('click', () => filterByTag(tag.id));
+    button.addEventListener('click', () => toggleTagFilter(tag.id));
     tagsList.appendChild(button);
   });
 }
 
-function filterByTag(tagId) {
-  if (currentTagFilter === tagId) {
-    currentTagFilter = null;
+function toggleTagFilter(tagId) {
+  const index = currentTagFilters.indexOf(tagId);
+  if (index > -1) {
+    // Tag is already selected, remove it
+    currentTagFilters.splice(index, 1);
   } else {
-    currentTagFilter = tagId;
+    // Tag is not selected, add it
+    currentTagFilters.push(tagId);
   }
   currentPage = 1;
   fetchProfiles(1);
@@ -107,9 +119,34 @@ function filterByTag(tagId) {
 
 function clearTagFilter() {
   currentTagFilter = null;
+  currentTagFilters = [];
   currentPage = 1;
   fetchProfiles(1);
   fetchTags();
+}
+
+function setTagFilterMode(mode) {
+  currentTagFilterMode = mode;
+  updateTagFilterModeUI();
+  if (currentTagFilters.length > 0) {
+    currentPage = 1;
+    fetchProfiles(1);
+  }
+}
+
+function updateTagFilterModeUI() {
+  const orBtn = document.getElementById('tagFilterModeOr');
+  const andBtn = document.getElementById('tagFilterModeAnd');
+
+  if (currentTagFilterMode === 'OR') {
+    orBtn.className = 'px-2 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700';
+    andBtn.className =
+      'px-2 py-1 text-xs bg-white text-gray-700 border-r border-gray-400 hover:bg-gray-100';
+  } else {
+    orBtn.className = 'px-2 py-1 text-xs bg-white text-gray-700 hover:bg-gray-100';
+    andBtn.className =
+      'px-2 py-1 text-xs bg-blue-600 text-white border-r border-gray-400 hover:bg-blue-700';
+  }
 }
 
 function handleSearch() {
@@ -145,7 +182,7 @@ function renderProfiles(data) {
       profile.tags && profile.tags.length > 0
         ? profile.tags
             .map((tag) => {
-              const isActive = currentTagFilter === tag.id;
+              const isActive = currentTagFilters.includes(tag.id);
               const tagClasses = isActive
                 ? 'inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-600 text-white border border-blue-700 mr-1 mb-1 cursor-pointer hover:bg-blue-700'
                 : 'inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 border border-blue-300 mr-1 mb-1 cursor-pointer hover:bg-blue-200';
@@ -228,7 +265,7 @@ function renderProfiles(data) {
       const tagSpan = e.target.closest('[data-tag-id]');
       if (tagSpan) {
         const tagId = Number.parseInt(tagSpan.dataset.tagId, 10);
-        filterByTag(tagId);
+        toggleTagFilter(tagId);
       }
     });
   });
@@ -671,6 +708,10 @@ document.getElementById('confirmBackupBtn').addEventListener('click', confirmBac
 document.getElementById('cancelRestoreBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('confirmRestoreBtn').addEventListener('click', confirmRestore);
 document.getElementById('clearTagFilter').addEventListener('click', clearTagFilter);
+document.getElementById('tagFilterModeOr').addEventListener('click', () => setTagFilterMode('OR'));
+document
+  .getElementById('tagFilterModeAnd')
+  .addEventListener('click', () => setTagFilterMode('AND'));
 
 const searchInput = document.getElementById('searchInput');
 searchInput.addEventListener('input', () => {
