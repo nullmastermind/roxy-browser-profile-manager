@@ -3,7 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import { config } from './config.js';
-import { getProfiles, updateProfileDescription } from './database.js';
+import {
+  assignTagToProfile,
+  getAllTags,
+  getProfiles,
+  removeTagFromProfile,
+  updateProfileDescription,
+} from './database.js';
 import {
   backupProfile,
   deleteBackupProfile,
@@ -11,6 +17,7 @@ import {
   restoreProfile,
 } from './profileService.js';
 import type {
+  AssignTagRequest,
   BackupRequest,
   ErrorResponse,
   PaginatedProfilesResponse,
@@ -30,12 +37,13 @@ app.get('/api/profiles', async (req, res) => {
   try {
     const page = Number.parseInt(req.query.page as string, 10) || 1;
     const pageSize = Number.parseInt(req.query.pageSize as string, 10) || 20;
+    const tagId = req.query.tagId ? Number.parseInt(req.query.tagId as string, 10) : undefined;
 
     if (page < 1 || pageSize < 1 || pageSize > 10000) {
       return res.status(400).json({ error: 'Invalid pagination parameters' } as ErrorResponse);
     }
 
-    const { profiles, total } = await getProfiles(page, pageSize);
+    const { profiles, total } = await getProfiles(page, pageSize, tagId);
     const totalPages = Math.ceil(total / pageSize);
 
     const response: PaginatedProfilesResponse = {
@@ -139,6 +147,60 @@ app.delete('/api/profiles/:id', async (req, res) => {
   } catch (error) {
     console.error('Error deleting profile:', error);
     const message = error instanceof Error ? error.message : 'Failed to delete profile';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/tags', async (_req, res) => {
+  try {
+    const tags = await getAllTags();
+    res.json(tags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    res.status(500).json({ error: 'Failed to fetch tags' } as ErrorResponse);
+  }
+});
+
+app.post('/api/profiles/:id/tags', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+    const { tagName } = req.body as AssignTagRequest;
+
+    if (!profileId || typeof profileId !== 'string') {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+
+    if (!tagName || typeof tagName !== 'string' || tagName.trim() === '') {
+      return res.status(400).json({ error: 'Tag name is required' } as ErrorResponse);
+    }
+
+    await assignTagToProfile(profileId, tagName.trim());
+    res.json({ success: true, message: 'Tag assigned successfully' });
+  } catch (error) {
+    console.error('Error assigning tag:', error);
+    const message = error instanceof Error ? error.message : 'Failed to assign tag';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.delete('/api/profiles/:id/tags/:tagId', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+    const tagId = Number.parseInt(req.params.tagId, 10);
+
+    if (!profileId || typeof profileId !== 'string') {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+
+    if (Number.isNaN(tagId)) {
+      return res.status(400).json({ error: 'Valid tag ID is required' } as ErrorResponse);
+    }
+
+    await removeTagFromProfile(profileId, tagId);
+    res.json({ success: true, message: 'Tag removed successfully' });
+  } catch (error) {
+    console.error('Error removing tag:', error);
+    const message = error instanceof Error ? error.message : 'Failed to remove tag';
     res.status(500).json({ error: message } as ErrorResponse);
   }
 });

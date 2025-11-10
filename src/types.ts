@@ -1,8 +1,15 @@
+export interface TagRecord {
+  id: number;
+  name: string;
+  createdAt: Date;
+}
+
 export interface ProfileRecord {
   profileId: string;
   description: string | null;
   createdAt: Date;
   updatedAt: Date;
+  tags?: TagRecord[];
 }
 
 export interface PaginatedProfilesResponse {
@@ -30,6 +37,14 @@ export interface RestoreRequest {
 
 export interface UpdateProfileRequest {
   description: string;
+}
+
+export interface AssignTagRequest {
+  tagName: string;
+}
+
+export interface RemoveTagRequest {
+  tagId: number;
 }
 
 export interface ErrorResponse {

@@ -1,6 +1,7 @@
 let currentPage = 1;
 const pageSize = 20;
 let currentRestoreProfileId = '';
+let currentTagFilter = null;
 
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
@@ -35,7 +36,11 @@ function setButtonLoading(button, isLoading) {
 
 async function fetchProfiles(page = 1) {
   try {
-    const response = await fetch(`/api/profiles?page=${page}&pageSize=${pageSize}`);
+    let url = `/api/profiles?page=${page}&pageSize=${pageSize}`;
+    if (currentTagFilter !== null) {
+      url += `&tagId=${currentTagFilter}`;
+    }
+    const response = await fetch(url);
     const data = await response.json();
 
     if (!response.ok) {
@@ -51,30 +56,99 @@ async function fetchProfiles(page = 1) {
   }
 }
 
+async function fetchTags() {
+  try {
+    const response = await fetch('/api/tags');
+    const tags = await response.json();
+
+    if (!response.ok) {
+      throw new Error(tags.error || 'Failed to fetch tags');
+    }
+
+    renderTags(tags);
+  } catch (error) {
+    console.error('Error fetching tags:', error);
+    showToast(`Failed to load tags: ${error.message}`, 'error');
+  }
+}
+
+function renderTags(tags) {
+  const tagsList = document.getElementById('tagsList');
+  tagsList.innerHTML = '';
+
+  tags.forEach((tag) => {
+    const button = document.createElement('button');
+    button.className = `px-2 py-1 text-xs border ${
+      currentTagFilter === tag.id
+        ? 'bg-blue-600 text-white border-blue-700'
+        : 'bg-white text-gray-700 border-gray-400 hover:bg-gray-100'
+    }`;
+    button.textContent = tag.name;
+    button.dataset.tagId = tag.id;
+    button.addEventListener('click', () => filterByTag(tag.id));
+    tagsList.appendChild(button);
+  });
+}
+
+function filterByTag(tagId) {
+  currentTagFilter = tagId;
+  currentPage = 1;
+  fetchProfiles(1);
+  fetchTags();
+}
+
+function clearTagFilter() {
+  currentTagFilter = null;
+  currentPage = 1;
+  fetchProfiles(1);
+  fetchTags();
+}
+
 function renderProfiles(data) {
   const tbody = document.getElementById('profilesBody');
   tbody.innerHTML = '';
 
   if (data.profiles.length === 0) {
     tbody.innerHTML =
-      '<tr><td colspan="4" class="px-4 py-3 text-center text-gray-500 border-b border-gray-200">No profiles found</td></tr>';
+      '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500 border-b border-gray-200">No profiles found</td></tr>';
     return;
   }
 
   data.profiles.forEach((profile) => {
     const row = document.createElement('tr');
     row.className = 'border-b border-gray-200 hover:bg-gray-50';
+
+    const tagsHtml =
+      profile.tags && profile.tags.length > 0
+        ? profile.tags
+            .map(
+              (tag) => `
+          <span class="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-blue-100 text-blue-800 border border-blue-300 mr-1 mb-1">
+            ${escapeHtml(tag.name)}
+            <button class="remove-tag-btn hover:text-red-600" data-profile-id="${escapeHtml(profile.profileId)}" data-tag-id="${tag.id}" title="Remove tag">×</button>
+          </span>
+        `,
+            )
+            .join('')
+        : '';
+
     row.innerHTML = `
-      <td class="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200">${escapeHtml(profile.profileId)}</td>
-      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200">
+      <td class="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" style="width: 15%;">${escapeHtml(profile.profileId)}</td>
+      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 30%;">
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
                data-profile-id="${escapeHtml(profile.profileId)}"
                class="description-input w-full px-2 py-1 border border-gray-300 focus:outline-none focus:border-blue-500"
                placeholder="Add description">
       </td>
-      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200">${formatDate(profile.createdAt)}</td>
-      <td class="px-4 py-2 text-sm font-medium">
+      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 15%;">
+        <div class="flex flex-wrap items-center gap-1">
+          ${tagsHtml}
+          <button class="add-tag-btn text-xs text-blue-600 hover:text-blue-900 border border-blue-300 px-1.5 py-0.5" data-profile-id="${escapeHtml(profile.profileId)}" title="Add tag">+</button>
+        </div>
+      </td>
+      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 15%;">${formatDate(profile.createdAt)}</td>
+      <td class="px-4 py-2 text-sm font-medium" style="width: 25%;">
         <button class="backup-to-btn text-green-600 hover:text-green-900 font-medium mr-3" data-profile-id="${escapeHtml(profile.profileId)}">
           Backup To
         </button>
@@ -107,6 +181,17 @@ function renderProfiles(data) {
 
   document.querySelectorAll('.delete-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => confirmDeleteProfile(e.target.dataset.profileId));
+  });
+
+  document.querySelectorAll('.add-tag-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => openAddTagModal(e.target.dataset.profileId));
+  });
+
+  document.querySelectorAll('.remove-tag-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      removeTag(e.target.dataset.profileId, e.target.dataset.tagId);
+    });
   });
 }
 
@@ -356,63 +441,44 @@ async function openRestoreModal(profileId) {
 function closeRestoreModal() {
   document.getElementById('restoreModal').classList.add('hidden');
   document.getElementById('targetFolderSelect').value = '';
+  document.getElementById('customTargetFolderInput').value = '';
   currentRestoreProfileId = '';
 }
 
 async function confirmRestore() {
-  const targetFolderId = document.getElementById('targetFolderSelect').value;
+  const customTargetFolder = document.getElementById('customTargetFolderInput').value.trim();
+  const selectedTargetFolder = document.getElementById('targetFolderSelect').value;
+  const targetFolderId = customTargetFolder || selectedTargetFolder;
   const confirmBtn = document.getElementById('confirmRestoreBtn');
 
   if (!targetFolderId) {
-    showToast('Please select a target folder', 'error');
+    showToast('Please select a target folder or enter a custom path', 'error');
     return;
   }
 
-  const confirmModal = document.createElement('div');
-  confirmModal.className =
-    'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center';
-  confirmModal.innerHTML = `
-    <div class="bg-white border border-gray-400 p-4 max-w-md">
-      <h3 class="text-lg font-medium text-gray-900 mb-3 pb-2 border-b border-gray-300">Confirm Restore</h3>
-      <p class="text-sm text-gray-700 mb-4">Are you sure you want to restore to ${escapeHtml(targetFolderId)}? This will delete the existing folder.</p>
-      <div class="flex gap-2 justify-end pt-2 border-t border-gray-300">
-        <button id="cancelConfirm" class="px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">Cancel</button>
-        <button id="proceedConfirm" class="px-3 py-1.5 bg-red-600 text-white border border-red-700 hover:bg-red-700">Proceed</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(confirmModal);
+  setButtonLoading(confirmBtn, true);
 
-  confirmModal.querySelector('#cancelConfirm').addEventListener('click', () => {
-    document.body.removeChild(confirmModal);
-  });
+  try {
+    const response = await fetch('/api/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId: currentRestoreProfileId, targetFolderId }),
+    });
 
-  confirmModal.querySelector('#proceedConfirm').addEventListener('click', async () => {
-    document.body.removeChild(confirmModal);
-    setButtonLoading(confirmBtn, true);
+    const data = await response.json();
 
-    try {
-      const response = await fetch('/api/restore', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profileId: currentRestoreProfileId, targetFolderId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to restore profile');
-      }
-
-      showToast('Profile restored successfully!');
-      closeRestoreModal();
-    } catch (error) {
-      console.error('Error restoring profile:', error);
-      showToast(`Failed to restore profile: ${error.message}`, 'error');
-    } finally {
-      setButtonLoading(confirmBtn, false);
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to restore profile');
     }
-  });
+
+    showToast('Profile restored successfully!');
+    closeRestoreModal();
+  } catch (error) {
+    console.error('Error restoring profile:', error);
+    showToast(`Failed to restore profile: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(confirmBtn, false);
+  }
 }
 
 function formatDate(dateString) {
@@ -474,11 +540,64 @@ async function confirmDeleteProfile(profileId) {
   });
 }
 
+async function openAddTagModal(profileId) {
+  const tagName = prompt('Enter tag name:');
+  if (!tagName || tagName.trim() === '') {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/tags`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tagName: tagName.trim() }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to add tag');
+    }
+
+    showToast('Tag added successfully!');
+    fetchProfiles(currentPage);
+    fetchTags();
+  } catch (error) {
+    console.error('Error adding tag:', error);
+    showToast(`Failed to add tag: ${error.message}`, 'error');
+  }
+}
+
+async function removeTag(profileId, tagId) {
+  try {
+    const response = await fetch(
+      `/api/profiles/${encodeURIComponent(profileId)}/tags/${encodeURIComponent(tagId)}`,
+      {
+        method: 'DELETE',
+      },
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to remove tag');
+    }
+
+    showToast('Tag removed successfully!');
+    fetchProfiles(currentPage);
+    fetchTags();
+  } catch (error) {
+    console.error('Error removing tag:', error);
+    showToast(`Failed to remove tag: ${error.message}`, 'error');
+  }
+}
+
 document.getElementById('backupBtn').addEventListener('click', openBackupModal);
 document.getElementById('cancelBackupBtn').addEventListener('click', closeBackupModal);
 document.getElementById('confirmBackupBtn').addEventListener('click', confirmBackup);
 document.getElementById('cancelRestoreBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('confirmRestoreBtn').addEventListener('click', confirmRestore);
+document.getElementById('clearTagFilter').addEventListener('click', clearTagFilter);
 
 document.getElementById('prevBtn').addEventListener('click', () => {
   if (currentPage > 1) {
@@ -491,3 +610,4 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 });
 
 fetchProfiles(1);
+fetchTags();
