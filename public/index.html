@@ -81,6 +81,18 @@
     </div>
 
     <div class="bg-white border-b border-gray-300 px-4 py-2">
+      <div class="flex items-center gap-3 mb-2">
+        <label for="searchInput" class="text-sm font-medium text-gray-700">Search:</label>
+        <input
+          type="text"
+          id="searchInput"
+          placeholder="Search by profile ID or description..."
+          class="flex-1 px-2 py-1 border border-gray-300 focus:outline-none focus:border-blue-500 text-sm"
+        />
+        <button id="clearSearchBtn" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">
+          Clear
+        </button>
+      </div>
       <div class="flex items-center gap-2 flex-wrap">
         <span class="text-sm font-medium text-gray-700">Filter by tag:</span>
         <button id="clearTagFilter" class="px-2 py-1 text-xs bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">

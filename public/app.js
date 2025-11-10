@@ -2,6 +2,7 @@ let currentPage = 1;
 const pageSize = 20;
 let currentRestoreProfileId = '';
 let currentTagFilter = null;
+let currentSearchQuery = '';
 
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
@@ -39,6 +40,9 @@ async function fetchProfiles(page = 1) {
     let url = `/api/profiles?page=${page}&pageSize=${pageSize}`;
     if (currentTagFilter !== null) {
       url += `&tagId=${currentTagFilter}`;
+    }
+    if (currentSearchQuery && currentSearchQuery.trim() !== '') {
+      url += `&search=${encodeURIComponent(currentSearchQuery.trim())}`;
     }
     const response = await fetch(url);
     const data = await response.json();
@@ -106,6 +110,21 @@ function clearTagFilter() {
   currentPage = 1;
   fetchProfiles(1);
   fetchTags();
+}
+
+function handleSearch() {
+  const searchInput = document.getElementById('searchInput');
+  currentSearchQuery = searchInput.value;
+  currentPage = 1;
+  fetchProfiles(1);
+}
+
+function clearSearch() {
+  const searchInput = document.getElementById('searchInput');
+  searchInput.value = '';
+  currentSearchQuery = '';
+  currentPage = 1;
+  fetchProfiles(1);
 }
 
 function renderProfiles(data) {
@@ -618,6 +637,19 @@ document.getElementById('confirmBackupBtn').addEventListener('click', confirmBac
 document.getElementById('cancelRestoreBtn').addEventListener('click', closeRestoreModal);
 document.getElementById('confirmRestoreBtn').addEventListener('click', confirmRestore);
 document.getElementById('clearTagFilter').addEventListener('click', clearTagFilter);
+
+const searchInput = document.getElementById('searchInput');
+searchInput.addEventListener('input', () => {
+  handleSearch();
+});
+
+searchInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    handleSearch();
+  }
+});
+
+document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 
 document.getElementById('prevBtn').addEventListener('click', () => {
   if (currentPage > 1) {

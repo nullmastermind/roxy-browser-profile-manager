@@ -7,18 +7,41 @@ export async function getProfiles(
   page: number,
   pageSize: number,
   tagId?: number,
+  search?: string,
 ): Promise<{ profiles: ProfileRecord[]; total: number }> {
   const skip = (page - 1) * pageSize;
 
-  const where = tagId
-    ? {
-        tags: {
-          some: {
-            tagId,
+  const whereConditions: any[] = [];
+
+  if (tagId) {
+    whereConditions.push({
+      tags: {
+        some: {
+          tagId,
+        },
+      },
+    });
+  }
+
+  if (search && search.trim() !== '') {
+    const searchTerm = search.trim();
+    whereConditions.push({
+      OR: [
+        {
+          profileId: {
+            contains: searchTerm,
           },
         },
-      }
-    : {};
+        {
+          description: {
+            contains: searchTerm,
+          },
+        },
+      ],
+    });
+  }
+
+  const where = whereConditions.length > 0 ? { AND: whereConditions } : {};
 
   const [profiles, total] = await Promise.all([
     prisma.profile.findMany({

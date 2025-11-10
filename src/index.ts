@@ -58,12 +58,13 @@ app.get('/api/profiles', async (req, res) => {
     const page = Number.parseInt(req.query.page as string, 10) || 1;
     const pageSize = Number.parseInt(req.query.pageSize as string, 10) || 20;
     const tagId = req.query.tagId ? Number.parseInt(req.query.tagId as string, 10) : undefined;
+    const search = req.query.search ? (req.query.search as string) : undefined;
 
     if (page < 1 || pageSize < 1 || pageSize > 10000) {
       return res.status(400).json({ error: 'Invalid pagination parameters' } as ErrorResponse);
     }
 
-    const { profiles, total } = await getProfiles(page, pageSize, tagId);
+    const { profiles, total } = await getProfiles(page, pageSize, tagId, search);
     const totalPages = Math.ceil(total / pageSize);
 
     const response: PaginatedProfilesResponse = {
