@@ -3,8 +3,30 @@ const pageSize = 20;
 let currentRestoreProfileId = '';
 let currentTagFilter = null;
 let currentSearchQuery = '';
-let currentTagFilters = []; // Array of selected tag IDs for multiple tag filtering
-let currentTagFilterMode = 'AND'; // 'OR' or 'AND'
+let currentTagFilters = [];
+let currentTagFilterMode = 'AND';
+
+function initDarkMode() {
+  const savedTheme = localStorage.getItem('darkMode');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const isDarkMode = savedTheme === 'true' || (savedTheme === null && prefersDark);
+
+  if (isDarkMode) {
+    document.body.classList.add('dark-mode');
+    updateDarkModeIcon(true);
+  }
+}
+
+function toggleDarkMode() {
+  const isDarkMode = document.body.classList.toggle('dark-mode');
+  localStorage.setItem('darkMode', isDarkMode);
+  updateDarkModeIcon(isDarkMode);
+}
+
+function updateDarkModeIcon(isDarkMode) {
+  const icon = document.getElementById('darkModeIcon');
+  icon.textContent = isDarkMode ? '☀️' : '🌙';
+}
 
 function showToast(message, type = 'success') {
   const container = document.getElementById('toastContainer');
@@ -91,11 +113,14 @@ function renderTags(tags) {
   tags.forEach((tag) => {
     const button = document.createElement('button');
     const isSelected = currentTagFilters.includes(tag.id);
-    button.className = `px-2 py-1 text-xs border ${
-      isSelected
-        ? 'bg-blue-600 text-white border-blue-700'
-        : 'bg-white text-gray-700 border-gray-400 hover:bg-gray-100'
-    }`;
+    button.className = 'px-2 py-1 text-xs border';
+    if (isSelected) {
+      button.className += ' bg-blue-600 text-white border-blue-700';
+    } else {
+      button.style.backgroundColor = 'var(--bg-secondary)';
+      button.style.color = 'var(--text-tertiary)';
+      button.style.borderColor = 'var(--border-primary)';
+    }
     button.textContent = tag.name;
     button.dataset.tagId = tag.id;
     button.addEventListener('click', () => toggleTagFilter(tag.id));
@@ -140,12 +165,16 @@ function updateTagFilterModeUI() {
 
   if (currentTagFilterMode === 'OR') {
     orBtn.className = 'px-2 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700';
-    andBtn.className =
-      'px-2 py-1 text-xs bg-white text-gray-700 border-r border-gray-400 hover:bg-gray-100';
+    andBtn.className = 'px-2 py-1 text-xs';
+    andBtn.style.backgroundColor = 'var(--bg-secondary)';
+    andBtn.style.color = 'var(--text-tertiary)';
+    andBtn.style.borderRight = '1px solid var(--border-primary)';
   } else {
-    orBtn.className = 'px-2 py-1 text-xs bg-white text-gray-700 hover:bg-gray-100';
-    andBtn.className =
-      'px-2 py-1 text-xs bg-blue-600 text-white border-r border-gray-400 hover:bg-blue-700';
+    orBtn.className = 'px-2 py-1 text-xs';
+    orBtn.style.backgroundColor = 'var(--bg-secondary)';
+    orBtn.style.color = 'var(--text-tertiary)';
+    andBtn.className = 'px-2 py-1 text-xs bg-blue-600 text-white hover:bg-blue-700';
+    andBtn.style.borderRight = '1px solid var(--border-primary)';
   }
 }
 
@@ -169,14 +198,19 @@ function renderProfiles(data) {
   tbody.innerHTML = '';
 
   if (data.profiles.length === 0) {
-    tbody.innerHTML =
-      '<tr><td colspan="5" class="px-4 py-3 text-center text-gray-500 border-b border-gray-200">No profiles found</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-3 text-center" style="color: var(--text-secondary); border-bottom: 1px solid var(--border-secondary);">No profiles found</td></tr>`;
     return;
   }
 
   data.profiles.forEach((profile) => {
     const row = document.createElement('tr');
-    row.className = 'border-b border-gray-200 hover:bg-gray-50';
+    row.style.borderBottom = '1px solid var(--border-secondary)';
+    row.addEventListener('mouseenter', () => {
+      row.style.backgroundColor = 'var(--bg-hover)';
+    });
+    row.addEventListener('mouseleave', () => {
+      row.style.backgroundColor = '';
+    });
 
     const tagsHtml =
       profile.tags && profile.tags.length > 0
@@ -198,21 +232,22 @@ function renderProfiles(data) {
         : '';
 
     row.innerHTML = `
-      <td class="px-4 py-2 text-sm font-medium text-gray-900 border-r border-gray-200" style="width: 15%;">${escapeHtml(profile.profileId)}</td>
-      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 30%;">
+      <td class="px-4 py-2 text-sm font-medium" style="color: var(--text-primary); border-right: 1px solid var(--border-secondary); width: 15%;">${escapeHtml(profile.profileId)}</td>
+      <td class="px-4 py-2 text-sm" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 30%;">
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
                data-profile-id="${escapeHtml(profile.profileId)}"
-               class="description-input w-full px-2 py-1 border border-gray-300 focus:outline-none focus:border-blue-500"
+               class="description-input w-full px-2 py-1 focus:outline-none focus:border-blue-500"
+               style="border: 1px solid var(--border-primary); background-color: var(--bg-secondary); color: var(--text-primary);"
                placeholder="Add description">
       </td>
-      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 15%;">
+      <td class="px-4 py-2 text-sm" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 15%;">
         <div class="flex flex-wrap items-center gap-1">
           ${tagsHtml}
           <button class="add-tag-btn text-xs text-blue-600 hover:text-blue-900 border border-blue-300 px-1.5 py-0.5" data-profile-id="${escapeHtml(profile.profileId)}" title="Add tag">+</button>
         </div>
       </td>
-      <td class="px-4 py-2 text-sm text-gray-500 border-r border-gray-200" style="width: 15%;">${formatDate(profile.createdAt)}</td>
+      <td class="px-4 py-2 text-sm" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 15%;">${formatDate(profile.createdAt)}</td>
       <td class="px-4 py-2 text-sm font-medium" style="width: 25%;">
         <button class="backup-to-btn text-green-600 hover:text-green-900 font-medium mr-3" data-profile-id="${escapeHtml(profile.profileId)}">
           Backup To
@@ -423,14 +458,14 @@ async function confirmBackup() {
 
   if (targetProfileId) {
     const confirmModal = document.createElement('div');
-    confirmModal.className =
-      'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center';
+    confirmModal.className = 'fixed inset-0 flex items-center justify-center';
+    confirmModal.style.backgroundColor = 'var(--modal-overlay)';
     confirmModal.innerHTML = `
-      <div class="bg-white border border-gray-400 p-4 max-w-md">
-        <h3 class="text-lg font-medium text-gray-900 mb-3 pb-2 border-b border-gray-300">Confirm Overwrite</h3>
-        <p class="text-sm text-gray-700 mb-4">Are you sure you want to overwrite backup <strong>${escapeHtml(targetProfileId)}</strong>? All existing files in this backup will be deleted and replaced.</p>
-        <div class="flex gap-2 justify-end pt-2 border-t border-gray-300">
-          <button id="cancelOverwrite" class="px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">Cancel</button>
+      <div class="p-4 max-w-md" style="background-color: var(--bg-secondary); border: 1px solid var(--border-primary);">
+        <h3 class="text-lg font-medium mb-3 pb-2" style="color: var(--text-primary); border-bottom: 1px solid var(--border-primary);">Confirm Overwrite</h3>
+        <p class="text-sm mb-4" style="color: var(--text-tertiary);">Are you sure you want to overwrite backup <strong style="color: var(--text-primary);">${escapeHtml(targetProfileId)}</strong>? All existing files in this backup will be deleted and replaced.</p>
+        <div class="flex gap-2 justify-end pt-2" style="border-top: 1px solid var(--border-primary);">
+          <button id="cancelOverwrite" class="px-3 py-1.5" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); border: 1px solid var(--border-primary);">Cancel</button>
           <button id="proceedOverwrite" class="px-3 py-1.5 bg-orange-600 text-white border border-orange-700 hover:bg-orange-700">Proceed</button>
         </div>
       </div>
@@ -570,14 +605,14 @@ function escapeHtml(text) {
 
 async function confirmDeleteProfile(profileId) {
   const confirmModal = document.createElement('div');
-  confirmModal.className =
-    'fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center';
+  confirmModal.className = 'fixed inset-0 flex items-center justify-center';
+  confirmModal.style.backgroundColor = 'var(--modal-overlay)';
   confirmModal.innerHTML = `
-    <div class="bg-white border border-gray-400 p-4 max-w-md">
-      <h3 class="text-lg font-medium text-gray-900 mb-3 pb-2 border-b border-gray-300">Confirm Delete</h3>
-      <p class="text-sm text-gray-700 mb-4">Are you sure you want to delete profile <strong>${escapeHtml(profileId)}</strong>? This will permanently delete the backup files and database record.</p>
-      <div class="flex gap-2 justify-end pt-2 border-t border-gray-300">
-        <button id="cancelDelete" class="px-3 py-1.5 bg-gray-200 text-gray-700 border border-gray-400 hover:bg-gray-300">Cancel</button>
+    <div class="p-4 max-w-md" style="background-color: var(--bg-secondary); border: 1px solid var(--border-primary);">
+      <h3 class="text-lg font-medium mb-3 pb-2" style="color: var(--text-primary); border-bottom: 1px solid var(--border-primary);">Confirm Delete</h3>
+      <p class="text-sm mb-4" style="color: var(--text-tertiary);">Are you sure you want to delete profile <strong style="color: var(--text-primary);">${escapeHtml(profileId)}</strong>? This will permanently delete the backup files and database record.</p>
+      <div class="flex gap-2 justify-end pt-2" style="border-top: 1px solid var(--border-primary);">
+        <button id="cancelDelete" class="px-3 py-1.5" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); border: 1px solid var(--border-primary);">Cancel</button>
         <button id="proceedDelete" class="px-3 py-1.5 bg-red-600 text-white border border-red-700 hover:bg-red-700">
           <span class="btn-text">Delete</span>
         </button>
@@ -736,5 +771,8 @@ document.getElementById('nextBtn').addEventListener('click', () => {
   fetchProfiles(currentPage + 1);
 });
 
+document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+
+initDarkMode();
 fetchProfiles(1);
 fetchTags();
