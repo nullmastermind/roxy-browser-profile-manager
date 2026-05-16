@@ -194,11 +194,15 @@ export async function createRoxyProfile(
   workspaceId: number,
   windowName: string,
   proxyInfo?: ProxyInfo,
+  fingerInfo?: FingerInfo,
 ): Promise<string> {
   assertApiKey();
   const body: Record<string, unknown> = { workspaceId, windowName };
   if (proxyInfo) {
     body.proxyInfo = proxyInfo;
+  }
+  if (fingerInfo) {
+    body.fingerInfo = fingerInfo;
   }
   const res = await roxyPost<CreateProfileResponse>('/browser/create', body);
   if (res.code !== 0 || !res.data?.dirId) {
@@ -216,6 +220,11 @@ export interface ProxyInfo {
   port?: string;
   proxyUserName?: string;
   proxyPassword?: string;
+}
+
+export interface FingerInfo {
+  randomFingerprint?: boolean;
+  [key: string]: unknown;
 }
 
 export async function openRoxyProfile(
