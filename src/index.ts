@@ -14,7 +14,7 @@ import {
   updateProfileBackupSize,
   updateProfileDescription,
 } from './database.js';
-import { getDirectorySize } from './fileUtils.js';
+import { deleteDirectory, getDirectorySize } from './fileUtils.js';
 import {
   backupProfile,
   calculateTotalBackupSize,
@@ -22,11 +22,15 @@ import {
   getAvailableProfiles,
   restoreProfile,
 } from './profileService.js';
+import type { ProxyInfo } from './roxyApi.js';
 import {
   createRoxyProfile,
   deleteRoxyProfile,
   getFirstWorkspaceId,
   getProfileNameMap,
+  getRoxyProfileDetail,
+  listAllRoxyProfiles,
+  modifyRoxyProxy,
   openRoxyProfile,
 } from './roxyApi.js';
 import { clearRunState, readRunState, writeRunState } from './runState.js';
@@ -181,6 +185,32 @@ app.get('/api/available-profiles', async (_req, res) => {
   }
 });
 
+app.post('/api/available-profiles/delete', async (req, res) => {
+  try {
+    const { name } = (req.body ?? {}) as { name?: string };
+    if (!name || typeof name !== 'string') {
+      return res.status(400).json({ error: 'name is required' } as ErrorResponse);
+    }
+    if (name.includes('/') || name.includes('\\') || name.includes('..') || name === '') {
+      return res.status(400).json({ error: 'Invalid folder name' } as ErrorResponse);
+    }
+    const root = path.resolve(config.roxyBrowserPath);
+    const target = path.resolve(path.join(root, name));
+    if (!target.startsWith(root + path.sep)) {
+      return res.status(400).json({ error: 'Invalid folder path' } as ErrorResponse);
+    }
+    if (!fs.existsSync(target)) {
+      return res.status(404).json({ error: 'Folder not found' } as ErrorResponse);
+    }
+    await deleteDirectory(target);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting available profile folder:', error);
+    const message = error instanceof Error ? error.message : 'Failed to delete folder';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
 app.get('/api/roxy-profile-names', async (_req, res) => {
   try {
     const map = await getProfileNameMap();
@@ -193,13 +223,12 @@ app.get('/api/roxy-profile-names', async (_req, res) => {
 
 app.post('/api/roxy/create-profile', async (req, res) => {
   try {
-    const { windowName, sourceProfileId } = (req.body ?? {}) as {
+    const { windowName, sourceProfileId, proxyInfo } = (req.body ?? {}) as {
       windowName?: string;
       sourceProfileId?: string;
+      proxyInfo?: ProxyInfo;
     };
-    if (!sourceProfileId || typeof sourceProfileId !== 'string') {
-      return res.status(400).json({ error: 'sourceProfileId is required' } as ErrorResponse);
-    }
+    const hasSource = typeof sourceProfileId === 'string' && sourceProfileId !== '';
     const name =
       typeof windowName === 'string' && windowName.trim() !== ''
         ? windowName.trim()
@@ -207,7 +236,7 @@ app.post('/api/roxy/create-profile', async (req, res) => {
 
     const existing = await readRunState();
 
-    if (existing && existing.sourceProfileId === sourceProfileId) {
+    if (hasSource && existing && existing.sourceProfileId === sourceProfileId) {
       return res.json({
         dirId: existing.dirId,
         workspaceId: existing.workspaceId,
@@ -218,7 +247,7 @@ app.post('/api/roxy/create-profile', async (req, res) => {
     }
 
     let replacedPrevious = false;
-    if (existing && existing.sourceProfileId !== sourceProfileId) {
+    if (existing) {
       try {
         await deleteRoxyProfile(existing.workspaceId, [existing.dirId]);
       } catch (error) {
@@ -229,10 +258,10 @@ app.post('/api/roxy/create-profile', async (req, res) => {
     }
 
     const workspaceId = await getFirstWorkspaceId();
-    const dirId = await createRoxyProfile(workspaceId, name);
+    const dirId = await createRoxyProfile(workspaceId, name, proxyInfo);
     await writeRunState({
       dirId,
-      sourceProfileId,
+      sourceProfileId: hasSource ? (sourceProfileId as string) : '__adhoc__',
       workspaceId,
       updatedAt: new Date().toISOString(),
     });
@@ -256,6 +285,91 @@ app.post('/api/roxy/open-profile', async (req, res) => {
   } catch (error) {
     console.error('Error opening Roxy profile:', error);
     const message = error instanceof Error ? error.message : 'Failed to open Roxy profile';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/roxy/profiles', async (_req, res) => {
+  try {
+    const profiles = await listAllRoxyProfiles();
+    res.json(profiles);
+  } catch (error) {
+    console.error('Error listing Roxy profiles:', error);
+    const message = error instanceof Error ? error.message : 'Failed to list Roxy profiles';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/roxy/profile-detail', async (req, res) => {
+  try {
+    const dirId = req.query.dirId as string | undefined;
+    const workspaceIdParam = req.query.workspaceId as string | undefined;
+    if (!dirId || !workspaceIdParam) {
+      return res.status(400).json({ error: 'workspaceId and dirId are required' } as ErrorResponse);
+    }
+    const workspaceId = Number.parseInt(workspaceIdParam, 10);
+    if (Number.isNaN(workspaceId)) {
+      return res.status(400).json({ error: 'workspaceId must be a number' } as ErrorResponse);
+    }
+    const detail = await getRoxyProfileDetail(workspaceId, dirId);
+    res.json(detail);
+  } catch (error) {
+    console.error('Error fetching Roxy profile detail:', error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch profile detail';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.post('/api/roxy/update-proxy', async (req, res) => {
+  try {
+    const { workspaceId, dirId, proxyInfo } = (req.body ?? {}) as {
+      workspaceId?: number;
+      dirId?: string;
+      proxyInfo?: ProxyInfo;
+    };
+    if (!dirId || typeof workspaceId !== 'number' || !proxyInfo) {
+      return res
+        .status(400)
+        .json({ error: 'workspaceId, dirId, and proxyInfo are required' } as ErrorResponse);
+    }
+    await modifyRoxyProxy(workspaceId, dirId, proxyInfo);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating Roxy proxy:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update proxy';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.post('/api/roxy/delete-profile', async (req, res) => {
+  try {
+    const { workspaceId, dirId } = (req.body ?? {}) as {
+      workspaceId?: number;
+      dirId?: string;
+    };
+    if (!dirId) {
+      return res.status(400).json({ error: 'dirId is required' } as ErrorResponse);
+    }
+    let wsId = typeof workspaceId === 'number' ? workspaceId : undefined;
+    if (wsId === undefined) {
+      const all = await listAllRoxyProfiles();
+      const found = all.find((p) => p.dirId === dirId);
+      if (!found) {
+        return res
+          .status(404)
+          .json({ error: 'Profile not found in any workspace' } as ErrorResponse);
+      }
+      wsId = found.workspaceId;
+    }
+    await deleteRoxyProfile(wsId, [dirId]);
+    const state = await readRunState();
+    if (state && state.dirId === dirId) {
+      await clearRunState();
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting Roxy profile:', error);
+    const message = error instanceof Error ? error.message : 'Failed to delete profile';
     res.status(500).json({ error: message } as ErrorResponse);
   }
 });

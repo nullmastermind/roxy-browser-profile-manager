@@ -412,6 +412,52 @@
     }
 
     /* ---------- Run progress modal ---------- */
+    .roxy-profile-list {
+      max-height: 50vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background-color: var(--bg-surface);
+    }
+    .roxy-profile-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .roxy-profile-item:last-child {
+      border-bottom: none;
+    }
+    .roxy-profile-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .roxy-profile-name {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .roxy-profile-id {
+      font-size: 11.5px;
+      color: var(--text-faint);
+      font-family: 'JetBrains Mono', monospace;
+      word-break: break-all;
+    }
+    .roxy-profile-tags {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .roxy-profile-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
     .run-step {
       display: flex;
       align-items: center;
@@ -745,6 +791,14 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
             <span class="btn-text">New backup</span>
           </button>
+          <button id="createProfileBtn" class="btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span class="btn-text">Create profile</span>
+          </button>
+          <button id="manageProfilesBtn" class="btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            <span class="btn-text">Manage profiles</span>
+          </button>
         </div>
       </div>
     </header>
@@ -815,9 +869,15 @@
       <div class="modal-body">
         <div class="field">
           <label class="modal-label" for="profileSelect">Source profile</label>
-          <select id="profileSelect" class="w-full">
-            <option value="">Loading...</option>
-          </select>
+          <div class="flex items-center gap-2">
+            <select id="profileSelect" class="w-full" style="flex:1;">
+              <option value="">Loading...</option>
+            </select>
+            <button id="cleanOrphansBtn" class="action-btn danger hidden" type="button" title="Clean up orphan folders" style="flex-shrink:0;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+              <span id="cleanOrphansCount">0</span>
+            </button>
+          </div>
         </div>
         <div class="field">
           <label class="modal-label" for="targetProfileSelect">Target profile <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
@@ -829,6 +889,12 @@
         <div class="field">
           <label class="modal-label" for="descriptionInput">Description <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
           <input type="text" id="descriptionInput" class="w-full" placeholder="e.g. Production account, primary worker..." />
+        </div>
+        <div class="field">
+          <label class="flex items-center gap-2" for="deleteAfterBackupCheckbox" style="cursor: pointer; font-size: 12.5px; color: var(--text-secondary); font-weight: 500;">
+            <input type="checkbox" id="deleteAfterBackupCheckbox" style="cursor: pointer;" />
+            Delete RoxyBrowser profile after backup
+          </label>
         </div>
       </div>
       <div class="modal-footer">
@@ -875,6 +941,36 @@
 
   <div id="toastContainer"></div>
 
+  <div id="createProfileModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Create profile</div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="modal-label" for="newProfileNameInput">Profile name <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
+          <input type="text" id="newProfileNameInput" class="w-full" placeholder="My profile" />
+        </div>
+        <div class="field">
+          <label class="modal-label" for="newProfileProxyInput">Proxy <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
+          <input type="text" id="newProfileProxyInput" class="w-full" placeholder="host:port:user:pass" />
+          <p class="modal-help">Format: <code>host:port:user:pass</code>. Leave empty to create with no proxy.</p>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="newProfileProxyProtocol">Protocol</label>
+          <select id="newProfileProxyProtocol" class="w-full">
+            <option value="HTTP" selected>HTTP</option>
+            <option value="SOCKS5">SOCKS5</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelCreateProfileBtn" class="btn">Cancel</button>
+        <button id="confirmCreateProfileBtn" class="btn-primary">
+          <span class="btn-text">Create &amp; Run</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="runModal" class="hidden modal-overlay">
     <div class="modal-card">
       <div class="modal-header">Run profile</div>
@@ -909,6 +1005,67 @@
       </div>
       <div class="modal-footer">
         <button id="closeRunBtn" class="btn" disabled>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manageProfilesModal" class="hidden modal-overlay">
+    <div class="modal-card" style="max-width: 640px; width: 92vw;">
+      <div class="modal-header">Manage RoxyBrowser profiles</div>
+      <div class="modal-body">
+        <div id="manageProfilesList" class="roxy-profile-list">
+          <div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">Loading...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="refreshManageProfilesBtn" class="btn">
+          <span class="btn-text">Refresh</span>
+        </button>
+        <button id="closeManageProfilesBtn" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="editProxyModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Edit proxy</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Profile</span>
+          <div id="editProxyProfileLabel" class="mono" style="color: var(--text-primary); font-weight: 500;"></div>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="editProxyInput">Proxy</label>
+          <input type="text" id="editProxyInput" class="w-full" placeholder="host:port:user:pass" />
+          <p class="modal-help">Format: <code>host:port:user:pass</code>. Leave empty to remove proxy.</p>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="editProxyProtocol">Protocol</label>
+          <select id="editProxyProtocol" class="w-full">
+            <option value="HTTP">HTTP</option>
+            <option value="HTTPS">HTTPS</option>
+            <option value="SOCKS5">SOCKS5</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelEditProxyBtn" class="btn">Cancel</button>
+        <button id="confirmEditProxyBtn" class="btn-primary">
+          <span class="btn-text">Save</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="orphanFoldersModal" class="hidden modal-overlay">
+    <div class="modal-card" style="max-width: 560px; width: 92vw;">
+      <div class="modal-header">Clean up orphan folders</div>
+      <div class="modal-body">
+        <p class="modal-help" style="margin: 0 0 10px 0;">These folders exist in the RoxyBrowser cache but no longer have a matching profile in Roxy. Deleting them removes the folder from disk only.</p>
+        <div id="orphanFoldersList" class="roxy-profile-list"></div>
+      </div>
+      <div class="modal-footer">
+        <button id="closeOrphanFoldersBtn" class="btn">Close</button>
       </div>
     </div>
   </div>

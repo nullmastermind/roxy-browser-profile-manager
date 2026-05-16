@@ -190,16 +190,31 @@ export async function getFirstWorkspaceId(): Promise<number> {
   return firstRow.id;
 }
 
-export async function createRoxyProfile(workspaceId: number, windowName: string): Promise<string> {
+export async function createRoxyProfile(
+  workspaceId: number,
+  windowName: string,
+  proxyInfo?: ProxyInfo,
+): Promise<string> {
   assertApiKey();
-  const res = await roxyPost<CreateProfileResponse>('/browser/create', {
-    workspaceId,
-    windowName,
-  });
+  const body: Record<string, unknown> = { workspaceId, windowName };
+  if (proxyInfo) {
+    body.proxyInfo = proxyInfo;
+  }
+  const res = await roxyPost<CreateProfileResponse>('/browser/create', body);
   if (res.code !== 0 || !res.data?.dirId) {
     throw new Error(`Roxy /browser/create failed: ${res.msg ?? 'unknown error'}`);
   }
   return res.data.dirId;
+}
+
+export interface ProxyInfo {
+  proxyMethod?: 'custom' | 'choose';
+  proxyCategory?: 'noproxy' | 'HTTP' | 'HTTPS' | 'SOCKS5' | 'SSH';
+  ipType?: 'IPV4' | 'IPV6';
+  host?: string;
+  port?: string;
+  proxyUserName?: string;
+  proxyPassword?: string;
 }
 
 export async function openRoxyProfile(
@@ -234,5 +249,89 @@ export async function deleteRoxyProfile(workspaceId: number, dirIds: string[]): 
   });
   if (res.code !== 0) {
     throw new Error(`Roxy /browser/delete failed: ${res.msg ?? 'unknown error'}`);
+  }
+}
+
+export interface RoxyProfileSummary {
+  dirId: string;
+  windowName: string;
+  workspaceId: number;
+  os?: string;
+  coreVersion?: string;
+  windowRemark?: string;
+}
+
+export async function listAllRoxyProfiles(): Promise<RoxyProfileSummary[]> {
+  assertApiKey();
+  const workspaceIds = await listWorkspaceIds();
+  const out: RoxyProfileSummary[] = [];
+  for (const workspaceId of workspaceIds) {
+    const rows = await listProfilesInWorkspace(workspaceId);
+    for (const row of rows) {
+      const r = row as BrowserRow & {
+        os?: string;
+        coreVersion?: string;
+        windowRemark?: string;
+      };
+      out.push({
+        dirId: r.dirId,
+        windowName: r.windowName ?? '',
+        workspaceId,
+        os: r.os,
+        coreVersion: r.coreVersion,
+        windowRemark: r.windowRemark,
+      });
+    }
+  }
+  return out;
+}
+
+interface ProfileDetailResponse {
+  code: number;
+  msg?: string;
+  data?: {
+    rows?: Array<{
+      dirId?: string;
+      windowName?: string;
+      proxyInfo?: ProxyInfo;
+    }>;
+  };
+}
+
+export async function getRoxyProfileDetail(
+  workspaceId: number,
+  dirId: string,
+): Promise<{ windowName?: string; proxyInfo?: ProxyInfo }> {
+  assertApiKey();
+  const res = await roxyGet<ProfileDetailResponse>('/browser/detail', {
+    workspaceId,
+    dirId,
+  });
+  if (res.code !== 0) {
+    throw new Error(`Roxy /browser/detail failed: ${res.msg ?? 'unknown error'}`);
+  }
+  const row = res.data?.rows?.[0];
+  return { windowName: row?.windowName, proxyInfo: row?.proxyInfo };
+}
+
+interface ModifyProfileResponse {
+  code: number;
+  msg?: string;
+  data?: { dirId?: string };
+}
+
+export async function modifyRoxyProxy(
+  workspaceId: number,
+  dirId: string,
+  proxyInfo: ProxyInfo,
+): Promise<void> {
+  assertApiKey();
+  const res = await roxyPost<ModifyProfileResponse>('/browser/mdf', {
+    workspaceId,
+    dirId,
+    proxyInfo,
+  });
+  if (res.code !== 0) {
+    throw new Error(`Roxy /browser/mdf failed: ${res.msg ?? 'unknown error'}`);
   }
 }

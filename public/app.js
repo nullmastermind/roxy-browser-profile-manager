@@ -6,6 +6,34 @@ let currentSearchQuery = '';
 let currentTagFilters = [];
 let currentTagFilterMode = 'AND';
 let roxyProfileNames = {};
+let lastAutoBackupDescription = '';
+let orphanFolders = [];
+
+function updateOrphanFoldersUI(availableProfiles) {
+  orphanFolders = (availableProfiles || [])
+    .map((p) => p.name)
+    .filter((name) => !roxyProfileNames[name]);
+  const btn = document.getElementById('cleanOrphansBtn');
+  const count = document.getElementById('cleanOrphansCount');
+  if (!btn || !count) return;
+  if (orphanFolders.length > 0) {
+    btn.classList.remove('hidden');
+    count.textContent = String(orphanFolders.length);
+  } else {
+    btn.classList.add('hidden');
+  }
+}
+
+function autoFillBackupDescription(sourceId) {
+  const input = document.getElementById('descriptionInput');
+  if (!input) return;
+  const name = sourceId ? roxyProfileNames[sourceId] : '';
+  if (!name) return;
+  if (input.value === '' || input.value === lastAutoBackupDescription) {
+    input.value = name;
+    lastAutoBackupDescription = name;
+  }
+}
 
 async function fetchRoxyProfileNames() {
   try {
@@ -409,6 +437,7 @@ async function openBackupModal() {
       option.textContent = formatProfileLabel(profile.name);
       sourceSelect.appendChild(option);
     });
+    updateOrphanFoldersUI(availableProfiles);
 
     targetSelect.innerHTML = '<option value="">Create new backup</option>';
     backedUpData.profiles.forEach((profile) => {
@@ -458,6 +487,7 @@ async function openBackupModalWithTarget(targetProfileId) {
       option.textContent = formatProfileLabel(profile.name);
       sourceSelect.appendChild(option);
     });
+    updateOrphanFoldersUI(availableProfiles);
 
     targetSelect.innerHTML = '<option value="">Create new backup</option>';
     backedUpData.profiles.forEach((profile) => {
@@ -480,12 +510,15 @@ function closeBackupModal() {
   document.getElementById('profileSelect').value = '';
   document.getElementById('targetProfileSelect').value = '';
   document.getElementById('descriptionInput').value = '';
+  document.getElementById('deleteAfterBackupCheckbox').checked = false;
+  lastAutoBackupDescription = '';
 }
 
 async function confirmBackup() {
   const sourceProfileId = document.getElementById('profileSelect').value;
   const targetProfileId = document.getElementById('targetProfileSelect').value;
   const description = document.getElementById('descriptionInput').value;
+  const deleteAfter = document.getElementById('deleteAfterBackupCheckbox').checked;
   const confirmBtn = document.getElementById('confirmBackupBtn');
 
   if (!sourceProfileId) {
@@ -520,14 +553,20 @@ async function confirmBackup() {
 
     confirmModal.querySelector('#proceedOverwrite').addEventListener('click', async () => {
       document.body.removeChild(confirmModal);
-      await performBackup(sourceProfileId, targetProfileId, description, confirmBtn);
+      await performBackup(sourceProfileId, targetProfileId, description, confirmBtn, deleteAfter);
     });
   } else {
-    await performBackup(sourceProfileId, targetProfileId, description, confirmBtn);
+    await performBackup(sourceProfileId, targetProfileId, description, confirmBtn, deleteAfter);
   }
 }
 
-async function performBackup(sourceProfileId, targetProfileId, description, confirmBtn) {
+async function performBackup(
+  sourceProfileId,
+  targetProfileId,
+  description,
+  confirmBtn,
+  deleteAfter,
+) {
   setButtonLoading(confirmBtn, true);
 
   try {
@@ -551,6 +590,23 @@ async function performBackup(sourceProfileId, targetProfileId, description, conf
     showToast('Profile backed up successfully!');
     closeBackupModal();
     fetchProfiles(currentPage);
+
+    if (deleteAfter) {
+      try {
+        const delResp = await fetch('/api/roxy/delete-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dirId: sourceProfileId }),
+        });
+        const delData = await delResp.json();
+        if (!delResp.ok) throw new Error(delData.error || 'Failed to delete RoxyBrowser profile');
+        delete roxyProfileNames[sourceProfileId];
+        showToast('RoxyBrowser profile deleted');
+      } catch (delError) {
+        console.error('Failed to delete Roxy profile after backup:', delError);
+        showToast(`Backup OK, but delete failed: ${delError.message}`, 'error');
+      }
+    }
   } catch (error) {
     console.error('Error backing up profile:', error);
     showToast(`Failed to backup profile: ${error.message}`, 'error');
@@ -671,10 +727,12 @@ function resetRunSteps() {
   }
 }
 
-function openRunModal(profileId) {
+function openRunModal(label, options = {}) {
   const modal = document.getElementById('runModal');
-  document.getElementById('runProfileId').textContent = profileId;
+  document.getElementById('runProfileId').textContent = label;
   resetRunSteps();
+  const restoreStep = document.querySelector('#runSteps .run-step[data-step="restore"]');
+  restoreStep.style.display = options.hideRestore ? 'none' : '';
   const closeBtn = document.getElementById('closeRunBtn');
   closeBtn.disabled = true;
   modal.classList.remove('hidden');
@@ -682,6 +740,28 @@ function openRunModal(profileId) {
 
 function closeRunModal() {
   document.getElementById('runModal').classList.add('hidden');
+}
+
+function parseProxyString(input) {
+  const text = (input || '').trim();
+  if (text === '') return null;
+  const parts = text.split(':');
+  if (parts.length < 2 || parts.length > 4) {
+    throw new Error('Proxy must be in the form host:port[:user:pass]');
+  }
+  const [host, port, user, pass] = parts;
+  if (!host || !port) {
+    throw new Error('Proxy host and port are required');
+  }
+  if (!/^\d+$/.test(port)) {
+    throw new Error('Proxy port must be numeric');
+  }
+  return {
+    host,
+    port,
+    proxyUserName: user ?? '',
+    proxyPassword: pass ?? '',
+  };
 }
 
 async function startRunFlow(profileId) {
@@ -746,6 +826,405 @@ async function startRunFlow(profileId) {
   } finally {
     document.getElementById('closeRunBtn').disabled = false;
   }
+}
+
+async function startAdhocRunFlow({ proxy, protocol, profileName }) {
+  const name = (profileName || '').trim();
+  const fallbackName = proxy ? `Ad-hoc ${protocol} ${proxy.host}:${proxy.port}` : 'Ad-hoc profile';
+  const windowName = name || fallbackName;
+  const label = name
+    ? name
+    : proxy
+      ? `Ad-hoc (${protocol} ${proxy.host}:${proxy.port})`
+      : 'Ad-hoc (no proxy)';
+  openRunModal(label, { hideRestore: true });
+
+  let dirId = '';
+  let workspaceId;
+
+  try {
+    setRunStepState('create', 'running', '');
+    const proxyInfo = proxy
+      ? {
+          proxyMethod: 'custom',
+          proxyCategory: protocol,
+          ipType: 'IPV4',
+          host: proxy.host,
+          port: proxy.port,
+          proxyUserName: proxy.proxyUserName,
+          proxyPassword: proxy.proxyPassword,
+        }
+      : undefined;
+    const createResp = await fetch('/api/roxy/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        windowName,
+        proxyInfo,
+      }),
+    });
+    const createData = await createResp.json();
+    if (!createResp.ok) throw new Error(createData.error || 'Failed to create Roxy profile');
+    dirId = createData.dirId;
+    workspaceId = createData.workspaceId;
+    const createDetail = createData.replacedPrevious
+      ? `Replaced previous profile. New: ${dirId}`
+      : `Created new profile: ${dirId}`;
+    setRunStepState('create', 'done', createDetail);
+
+    setRunStepState('open', 'running', '');
+    const openResp = await fetch('/api/roxy/open-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dirId, workspaceId }),
+    });
+    const openData = await openResp.json();
+    if (!openResp.ok) throw new Error(openData.error || 'Failed to open browser');
+    const detail = openData.http ? `Browser running (${openData.http})` : 'Browser running';
+    setRunStepState('open', 'done', detail);
+
+    showToast('Profile is running!');
+  } catch (error) {
+    console.error('Ad-hoc run flow failed:', error);
+    const runningStep = document.querySelector('#runSteps .run-step.is-running');
+    if (runningStep) {
+      setRunStepState(runningStep.dataset.step, 'error', error.message);
+    }
+    showToast(`Run failed: ${error.message}`, 'error');
+  } finally {
+    document.getElementById('closeRunBtn').disabled = false;
+  }
+}
+
+function openCreateProfileModal() {
+  document.getElementById('newProfileNameInput').value = '';
+  document.getElementById('newProfileProxyInput').value = '';
+  document.getElementById('newProfileProxyProtocol').value = 'HTTP';
+  document.getElementById('createProfileModal').classList.remove('hidden');
+}
+
+function closeCreateProfileModal() {
+  document.getElementById('createProfileModal').classList.add('hidden');
+}
+
+async function submitCreateProfile() {
+  const profileName = document.getElementById('newProfileNameInput').value.trim();
+  const proxyText = document.getElementById('newProfileProxyInput').value;
+  const protocol = document.getElementById('newProfileProxyProtocol').value;
+  const confirmBtn = document.getElementById('confirmCreateProfileBtn');
+
+  let proxy;
+  try {
+    proxy = parseProxyString(proxyText);
+  } catch (error) {
+    showToast(error.message, 'error');
+    return;
+  }
+
+  setButtonLoading(confirmBtn, true);
+  try {
+    closeCreateProfileModal();
+    await startAdhocRunFlow({ proxy, protocol, profileName });
+  } finally {
+    setButtonLoading(confirmBtn, false);
+  }
+}
+
+let manageProfilesData = [];
+
+function openManageProfilesModal() {
+  document.getElementById('manageProfilesModal').classList.remove('hidden');
+  loadManageProfiles();
+}
+
+function closeManageProfilesModal() {
+  document.getElementById('manageProfilesModal').classList.add('hidden');
+}
+
+async function loadManageProfiles() {
+  const list = document.getElementById('manageProfilesList');
+  list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">Loading...</div>`;
+  try {
+    const response = await fetch('/api/roxy/profiles');
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error || 'Failed to load profiles');
+    }
+    manageProfilesData = Array.isArray(data) ? data : [];
+    renderManageProfiles();
+  } catch (error) {
+    console.error('Error loading Roxy profiles:', error);
+    list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--danger); font-size: 12px;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function renderManageProfiles() {
+  const list = document.getElementById('manageProfilesList');
+  if (manageProfilesData.length === 0) {
+    list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">No profiles found</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  for (const profile of manageProfilesData) {
+    const item = document.createElement('div');
+    item.className = 'roxy-profile-item';
+    const metaParts = [];
+    if (profile.os) metaParts.push(profile.os);
+    if (profile.coreVersion) metaParts.push(`core ${profile.coreVersion}`);
+    metaParts.push(`ws ${profile.workspaceId}`);
+    item.innerHTML = `
+      <div class="roxy-profile-meta">
+        <div class="roxy-profile-name">${escapeHtml(profile.windowName || '(no name)')}</div>
+        <div class="roxy-profile-id">${escapeHtml(profile.dirId)}</div>
+        <div class="roxy-profile-tags">${escapeHtml(metaParts.join(' · '))}</div>
+      </div>
+      <div class="roxy-profile-actions">
+        <button class="action-btn info edit-proxy-btn" data-dir-id="${escapeHtml(profile.dirId)}" data-workspace-id="${profile.workspaceId}" data-name="${escapeHtml(profile.windowName || '')}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+          Edit proxy
+        </button>
+        <button class="action-btn danger delete-roxy-btn" data-dir-id="${escapeHtml(profile.dirId)}" data-workspace-id="${profile.workspaceId}" data-name="${escapeHtml(profile.windowName || '')}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Delete
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  }
+
+  for (const btn of document.querySelectorAll('.edit-proxy-btn')) {
+    btn.addEventListener('click', (e) => {
+      const t = e.currentTarget;
+      openEditProxyModal({
+        dirId: t.dataset.dirId,
+        workspaceId: Number(t.dataset.workspaceId),
+        windowName: t.dataset.name,
+      });
+    });
+  }
+  for (const btn of document.querySelectorAll('.delete-roxy-btn')) {
+    btn.addEventListener('click', (e) => {
+      const t = e.currentTarget;
+      confirmDeleteRoxyProfile({
+        dirId: t.dataset.dirId,
+        workspaceId: Number(t.dataset.workspaceId),
+        windowName: t.dataset.name,
+      });
+    });
+  }
+}
+
+let editProxyTarget = null;
+
+async function openEditProxyModal({ dirId, workspaceId, windowName }) {
+  editProxyTarget = { dirId, workspaceId, windowName };
+  const modal = document.getElementById('editProxyModal');
+  document.getElementById('editProxyProfileLabel').textContent =
+    `${windowName || '(no name)'} (${dirId})`;
+  document.getElementById('editProxyInput').value = '';
+  document.getElementById('editProxyProtocol').value = 'HTTP';
+  modal.classList.remove('hidden');
+
+  try {
+    const url = `/api/roxy/profile-detail?workspaceId=${workspaceId}&dirId=${encodeURIComponent(dirId)}`;
+    const response = await fetch(url);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load detail');
+    const info = data.proxyInfo || {};
+    if (info.host && info.port) {
+      const user = info.proxyUserName || '';
+      const pass = info.proxyPassword || '';
+      const proxyText =
+        user || pass ? `${info.host}:${info.port}:${user}:${pass}` : `${info.host}:${info.port}`;
+      document.getElementById('editProxyInput').value = proxyText;
+    }
+    const category = info.proxyCategory;
+    if (category === 'HTTP' || category === 'HTTPS' || category === 'SOCKS5') {
+      document.getElementById('editProxyProtocol').value = category;
+    }
+  } catch (error) {
+    console.error('Failed to prefill proxy:', error);
+    showToast(`Could not load current proxy: ${error.message}`, 'error');
+  }
+}
+
+function closeEditProxyModal() {
+  document.getElementById('editProxyModal').classList.add('hidden');
+  editProxyTarget = null;
+}
+
+async function submitEditProxy() {
+  if (!editProxyTarget) return;
+  const proxyText = document.getElementById('editProxyInput').value;
+  const protocol = document.getElementById('editProxyProtocol').value;
+  const confirmBtn = document.getElementById('confirmEditProxyBtn');
+
+  let proxy;
+  try {
+    proxy = parseProxyString(proxyText);
+  } catch (error) {
+    showToast(error.message, 'error');
+    return;
+  }
+
+  const proxyInfo = proxy
+    ? {
+        moduleId: 0,
+        proxyMethod: 'custom',
+        proxyCategory: protocol,
+        ipType: 'IPV4',
+        host: proxy.host,
+        port: proxy.port,
+        proxyUserName: proxy.proxyUserName,
+        proxyPassword: proxy.proxyPassword,
+      }
+    : {
+        moduleId: 0,
+        proxyMethod: 'custom',
+        proxyCategory: 'noproxy',
+      };
+
+  setButtonLoading(confirmBtn, true);
+  try {
+    const response = await fetch('/api/roxy/update-proxy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workspaceId: editProxyTarget.workspaceId,
+        dirId: editProxyTarget.dirId,
+        proxyInfo,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to update proxy');
+    showToast('Proxy updated');
+    closeEditProxyModal();
+  } catch (error) {
+    console.error('Error updating proxy:', error);
+    showToast(`Failed to update proxy: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(confirmBtn, false);
+  }
+}
+
+function openOrphanFoldersModal() {
+  renderOrphanFolders();
+  document.getElementById('orphanFoldersModal').classList.remove('hidden');
+}
+
+function closeOrphanFoldersModal() {
+  document.getElementById('orphanFoldersModal').classList.add('hidden');
+}
+
+function renderOrphanFolders() {
+  const list = document.getElementById('orphanFoldersList');
+  if (!orphanFolders || orphanFolders.length === 0) {
+    list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">No orphan folders</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  for (const name of orphanFolders) {
+    const item = document.createElement('div');
+    item.className = 'roxy-profile-item';
+    item.innerHTML = `
+      <div class="roxy-profile-meta">
+        <div class="roxy-profile-id">${escapeHtml(name)}</div>
+      </div>
+      <div class="roxy-profile-actions">
+        <button class="action-btn danger delete-orphan-btn" data-name="${escapeHtml(name)}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Delete folder
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  }
+  for (const btn of document.querySelectorAll('.delete-orphan-btn')) {
+    btn.addEventListener('click', (e) => deleteOrphanFolder(e.currentTarget));
+  }
+}
+
+async function deleteOrphanFolder(btn) {
+  const name = btn.dataset.name;
+  setButtonLoading(btn, true);
+  try {
+    const response = await fetch('/api/available-profiles/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to delete folder');
+    showToast('Folder deleted');
+    orphanFolders = orphanFolders.filter((n) => n !== name);
+    const sourceSelect = document.getElementById('profileSelect');
+    if (sourceSelect) {
+      const opt = sourceSelect.querySelector(`option[value="${CSS.escape(name)}"]`);
+      if (opt) opt.remove();
+    }
+    const countEl = document.getElementById('cleanOrphansCount');
+    if (countEl) countEl.textContent = String(orphanFolders.length);
+    if (orphanFolders.length === 0) {
+      document.getElementById('cleanOrphansBtn').classList.add('hidden');
+      closeOrphanFoldersModal();
+    } else {
+      renderOrphanFolders();
+    }
+  } catch (error) {
+    console.error('Failed to delete orphan folder:', error);
+    showToast(`Failed: ${error.message}`, 'error');
+    setButtonLoading(btn, false);
+  }
+}
+
+function confirmDeleteRoxyProfile({ dirId, workspaceId, windowName }) {
+  const confirmModal = document.createElement('div');
+  confirmModal.className = 'modal-overlay';
+  confirmModal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">Delete RoxyBrowser profile?</div>
+      <div class="modal-body">
+        <p style="margin: 0; color: var(--text-secondary); font-size: 12.5px;">This permanently deletes the profile from RoxyBrowser. This cannot be undone.</p>
+        <div class="field" style="margin-top: 12px;">
+          <span class="modal-label">Profile</span>
+          <div class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(windowName || '(no name)')} (${escapeHtml(dirId)})</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelDeleteRoxy" class="btn">Cancel</button>
+        <button id="proceedDeleteRoxy" class="btn-danger">
+          <span class="btn-text">Delete</span>
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(confirmModal);
+
+  confirmModal.querySelector('#cancelDeleteRoxy').addEventListener('click', () => {
+    document.body.removeChild(confirmModal);
+  });
+
+  confirmModal.querySelector('#proceedDeleteRoxy').addEventListener('click', async () => {
+    const btn = confirmModal.querySelector('#proceedDeleteRoxy');
+    setButtonLoading(btn, true);
+    try {
+      const response = await fetch('/api/roxy/delete-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ workspaceId, dirId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to delete profile');
+      showToast('Profile deleted');
+      document.body.removeChild(confirmModal);
+      manageProfilesData = manageProfilesData.filter((p) => p.dirId !== dirId);
+      renderManageProfiles();
+    } catch (error) {
+      console.error('Error deleting profile:', error);
+      showToast(`Failed to delete: ${error.message}`, 'error');
+      setButtonLoading(btn, false);
+    }
+  });
 }
 
 function formatDate(dateString) {
@@ -1085,6 +1564,23 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 
 document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
 document.getElementById('closeRunBtn').addEventListener('click', closeRunModal);
+document.getElementById('createProfileBtn').addEventListener('click', openCreateProfileModal);
+document
+  .getElementById('cancelCreateProfileBtn')
+  .addEventListener('click', closeCreateProfileModal);
+document.getElementById('confirmCreateProfileBtn').addEventListener('click', submitCreateProfile);
+document.getElementById('manageProfilesBtn').addEventListener('click', openManageProfilesModal);
+document
+  .getElementById('closeManageProfilesBtn')
+  .addEventListener('click', closeManageProfilesModal);
+document.getElementById('refreshManageProfilesBtn').addEventListener('click', loadManageProfiles);
+document.getElementById('cancelEditProxyBtn').addEventListener('click', closeEditProxyModal);
+document.getElementById('confirmEditProxyBtn').addEventListener('click', submitEditProxy);
+document.getElementById('cleanOrphansBtn').addEventListener('click', openOrphanFoldersModal);
+document.getElementById('closeOrphanFoldersBtn').addEventListener('click', closeOrphanFoldersModal);
+document.getElementById('profileSelect').addEventListener('change', (e) => {
+  autoFillBackupDescription(e.target.value);
+});
 
 initDarkMode();
 fetchProfiles(1);
