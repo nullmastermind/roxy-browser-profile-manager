@@ -782,7 +782,28 @@ function openRunModal(label, options = {}) {
   restoreStep.style.display = options.hideRestore ? 'none' : '';
   const closeBtn = document.getElementById('closeRunBtn');
   closeBtn.disabled = true;
+  hideRunResult();
   modal.classList.remove('hidden');
+}
+
+function hideRunResult() {
+  const section = document.getElementById('runResultSection');
+  const code = document.getElementById('runResultJson');
+  const copyBtn = document.getElementById('runResultCopyBtn');
+  if (section) section.classList.add('hidden');
+  if (code) code.textContent = '';
+  if (copyBtn) {
+    copyBtn.classList.remove('copied');
+    copyBtn.textContent = 'Copy';
+  }
+}
+
+function showRunResult(data) {
+  const section = document.getElementById('runResultSection');
+  const code = document.getElementById('runResultJson');
+  if (!section || !code) return;
+  code.textContent = JSON.stringify(data, null, 2);
+  section.classList.remove('hidden');
 }
 
 function closeRunModal() {
@@ -861,6 +882,7 @@ async function startRunFlow(profileId) {
     if (!openResp.ok) throw new Error(openData.error || 'Failed to open browser');
     const detail = openData.http ? `Browser running (${openData.http})` : 'Browser running';
     setRunStepState('open', 'done', detail);
+    showRunResult(openData);
 
     showToast('Profile is running!');
   } catch (error) {
@@ -929,6 +951,7 @@ async function startAdhocRunFlow({ proxy, protocol, profileName }) {
     if (!openResp.ok) throw new Error(openData.error || 'Failed to open browser');
     const detail = openData.http ? `Browser running (${openData.http})` : 'Browser running';
     setRunStepState('open', 'done', detail);
+    showRunResult(openData);
 
     showToast('Profile is running!');
   } catch (error) {
@@ -1697,6 +1720,24 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 
 document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
 document.getElementById('closeRunBtn').addEventListener('click', closeRunModal);
+document.getElementById('runResultCopyBtn').addEventListener('click', async () => {
+  const code = document.getElementById('runResultJson');
+  const btn = document.getElementById('runResultCopyBtn');
+  const text = code?.textContent || '';
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'Copy';
+      btn.classList.remove('copied');
+    }, 1500);
+  } catch (error) {
+    console.error('Copy failed:', error);
+    showToast(`Failed to copy: ${error.message}`, 'error');
+  }
+});
 document.getElementById('createProfileBtn').addEventListener('click', openCreateProfileModal);
 document
   .getElementById('cancelCreateProfileBtn')
