@@ -4,6 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
+import {
+  deleteBackupMeta,
+  listAllBackupMetas,
+  readBackupMeta,
+  writeBackupMeta,
+} from './backupMeta.js';
 import { config } from './config.js';
 import {
   assignTagToProfile,
@@ -15,6 +21,7 @@ import {
   updateProfileDescription,
 } from './database.js';
 import { deleteDirectory, getDirectorySize } from './fileUtils.js';
+import { geolocateHosts } from './geoLookup.js';
 import {
   backupProfile,
   calculateTotalBackupSize,
@@ -171,6 +178,96 @@ app.post('/api/profiles/:id/recalculate-size', async (req, res) => {
   } catch (error) {
     console.error('Error recalculating profile size:', error);
     const message = error instanceof Error ? error.message : 'Failed to recalculate profile size';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/profiles/:id/proxy', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+    if (!profileId) {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+    const meta = await readBackupMeta(profileId);
+    res.json({
+      proxyInfo: meta?.proxyInfo ?? null,
+      capturedAt: meta?.capturedAt ?? null,
+    });
+  } catch (error) {
+    console.error('Error reading profile proxy:', error);
+    const message = error instanceof Error ? error.message : 'Failed to read profile proxy';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.put('/api/profiles/:id/proxy', async (req, res) => {
+  try {
+    const profileId = req.params.id;
+    if (!profileId) {
+      return res.status(400).json({ error: 'Profile ID is required' } as ErrorResponse);
+    }
+    const profile = await getProfileById(profileId);
+    if (!profile) {
+      return res.status(404).json({ error: 'Profile not found' } as ErrorResponse);
+    }
+    const { proxyInfo } = (req.body ?? {}) as { proxyInfo?: ProxyInfo | null };
+    const existing = (await readBackupMeta(profileId)) ?? {
+      capturedAt: new Date().toISOString(),
+    };
+    const normalized: ProxyInfo =
+      proxyInfo?.host && proxyInfo.port
+        ? {
+            moduleId: 0,
+            proxyMethod: 'custom',
+            ipType: 'IPV4',
+            ...proxyInfo,
+          }
+        : {
+            moduleId: 0,
+            proxyMethod: 'custom',
+            proxyCategory: 'noproxy',
+          };
+    await writeBackupMeta(profileId, {
+      ...existing,
+      proxyInfo: normalized,
+      capturedAt: new Date().toISOString(),
+    });
+    res.json({ proxyInfo: normalized });
+  } catch (error) {
+    console.error('Error updating profile proxy:', error);
+    const message = error instanceof Error ? error.message : 'Failed to update profile proxy';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.get('/api/profiles-proxy-info', async (_req, res) => {
+  try {
+    const metas = await listAllBackupMetas();
+    const hosts = metas
+      .map((m) => m.meta.proxyInfo?.host)
+      .filter((h): h is string => typeof h === 'string' && h !== '');
+    const geo = await geolocateHosts(hosts);
+    const out: Record<string, unknown> = {};
+    for (const { profileId, meta } of metas) {
+      const info = meta.proxyInfo;
+      if (!info || !info.host || !info.port || info.proxyCategory === 'noproxy') {
+        out[profileId] = null;
+        continue;
+      }
+      const g = geo.get(info.host);
+      out[profileId] = {
+        host: info.host,
+        port: info.port,
+        protocol: info.proxyCategory ?? null,
+        ip: g?.ip ?? null,
+        country: g?.country ?? null,
+        countryCode: g?.countryCode ?? null,
+      };
+    }
+    res.json(out);
+  } catch (error) {
+    console.error('Error fetching proxy info:', error);
+    const message = error instanceof Error ? error.message : 'Failed to fetch proxy info';
     res.status(500).json({ error: message } as ErrorResponse);
   }
 });
@@ -387,6 +484,25 @@ app.post('/api/backup', async (req, res) => {
     }
 
     const resultProfileId = await backupProfile(sourceProfileId, targetProfileId, description);
+
+    try {
+      if (config.roxyBrowserApiKey) {
+        const all = await listAllRoxyProfiles();
+        const found = all.find((p) => p.dirId === sourceProfileId);
+        if (found) {
+          const detail = await getRoxyProfileDetail(found.workspaceId, sourceProfileId);
+          await writeBackupMeta(resultProfileId, {
+            proxyInfo: detail.proxyInfo,
+            windowName: detail.windowName ?? found.windowName,
+            sourceProfileId,
+            capturedAt: new Date().toISOString(),
+          });
+        }
+      }
+    } catch (metaError) {
+      console.error('Failed to capture proxy metadata (continuing):', metaError);
+    }
+
     res.json({
       success: true,
       message: 'Profile backed up successfully',
@@ -412,7 +528,23 @@ app.post('/api/restore', async (req, res) => {
     }
 
     await restoreProfile(profileId, targetFolderId);
-    res.json({ success: true, message: 'Profile restored successfully' });
+
+    let proxyApplied = false;
+    try {
+      const meta = await readBackupMeta(profileId);
+      if (meta?.proxyInfo && config.roxyBrowserApiKey) {
+        const all = await listAllRoxyProfiles();
+        const target = all.find((p) => p.dirId === targetFolderId);
+        if (target) {
+          await modifyRoxyProxy(target.workspaceId, targetFolderId, meta.proxyInfo);
+          proxyApplied = true;
+        }
+      }
+    } catch (proxyError) {
+      console.error('Failed to apply proxy from backup (continuing):', proxyError);
+    }
+
+    res.json({ success: true, message: 'Profile restored successfully', proxyApplied });
   } catch (error) {
     console.error('Error restoring profile:', error);
     const message = error instanceof Error ? error.message : 'Failed to restore profile';
@@ -429,6 +561,7 @@ app.delete('/api/profiles/:id', async (req, res) => {
     }
 
     await deleteBackupProfile(profileId);
+    await deleteBackupMeta(profileId);
     res.json({ success: true, message: 'Profile deleted successfully' });
   } catch (error) {
     console.error('Error deleting profile:', error);

@@ -208,6 +208,7 @@ export async function createRoxyProfile(
 }
 
 export interface ProxyInfo {
+  moduleId?: number;
   proxyMethod?: 'custom' | 'choose';
   proxyCategory?: 'noproxy' | 'HTTP' | 'HTTPS' | 'SOCKS5' | 'SSH';
   ipType?: 'IPV4' | 'IPV6';

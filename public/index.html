@@ -457,6 +457,24 @@
       gap: 6px;
       flex-shrink: 0;
     }
+    .proxy-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 4px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background-color: var(--bg-muted);
+      color: var(--text-muted);
+      font-size: 10.5px;
+      font-family: 'JetBrains Mono', monospace;
+      max-width: 100%;
+      width: fit-content;
+    }
+    td .proxy-badge {
+      display: flex;
+    }
 
     .run-step {
       display: flex;
@@ -1066,6 +1084,38 @@
       </div>
       <div class="modal-footer">
         <button id="closeOrphanFoldersBtn" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="profileProxyModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Configure proxy</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Backup profile</span>
+          <div id="profileProxyId" class="mono" style="color: var(--text-primary); font-weight: 500;"></div>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="profileProxyInput">Proxy</label>
+          <input type="text" id="profileProxyInput" class="w-full" placeholder="host:port:user:pass" />
+          <p class="modal-help">Format: <code>host:port:user:pass</code>. Leave empty for no proxy.</p>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="profileProxyProtocol">Protocol</label>
+          <select id="profileProxyProtocol" class="w-full">
+            <option value="HTTP">HTTP</option>
+            <option value="HTTPS">HTTPS</option>
+            <option value="SOCKS5">SOCKS5</option>
+          </select>
+        </div>
+        <p class="modal-help" style="margin: 0;">Applied automatically on the next Run or Restore.</p>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelProfileProxyBtn" class="btn">Cancel</button>
+        <button id="confirmProfileProxyBtn" class="btn-primary">
+          <span class="btn-text">Save</span>
+        </button>
       </div>
     </div>
   </div>

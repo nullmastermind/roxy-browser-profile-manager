@@ -8,6 +8,44 @@ let currentTagFilterMode = 'AND';
 let roxyProfileNames = {};
 let lastAutoBackupDescription = '';
 let orphanFolders = [];
+let profileProxyInfo = {};
+
+function flagFromCountryCode(code) {
+  if (!code || typeof code !== 'string' || code.length !== 2) return '';
+  const cc = code.toUpperCase();
+  const A = 0x41;
+  const REGIONAL_A = 0x1f1e6;
+  return String.fromCodePoint(REGIONAL_A + cc.charCodeAt(0) - A, REGIONAL_A + cc.charCodeAt(1) - A);
+}
+
+async function fetchProfileProxyInfo() {
+  try {
+    const response = await fetch('/api/profiles-proxy-info');
+    if (!response.ok) return profileProxyInfo;
+    const data = await response.json();
+    if (data && typeof data === 'object') {
+      profileProxyInfo = data;
+    }
+  } catch (error) {
+    console.error('Error fetching profile proxy info:', error);
+  }
+  return profileProxyInfo;
+}
+
+function renderProxyBadge(profileId) {
+  const info = profileProxyInfo[profileId];
+  if (!info) return '';
+  const flag = flagFromCountryCode(info.countryCode);
+  const display = info.ip || info.host;
+  const country = info.countryCode || '';
+  const parts = [];
+  if (flag) parts.push(flag);
+  parts.push(escapeHtml(display));
+  if (country && !flag) parts.push(escapeHtml(country));
+  if (info.protocol) parts.push(escapeHtml(info.protocol));
+  const title = `${info.host}:${info.port}${info.country ? ` · ${info.country}` : ''}`;
+  return `<span class="proxy-badge" title="${escapeHtml(title)}">${parts.join(' · ')}</span>`;
+}
 
 function updateOrphanFoldersUI(availableProfiles) {
   orphanFolders = (availableProfiles || [])
@@ -263,7 +301,7 @@ function renderProfiles(data) {
         : '';
 
     row.innerHTML = `
-      <td><span class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(profile.profileId)}</span></td>
+      <td><span class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(profile.profileId)}</span>${renderProxyBadge(profile.profileId)}</td>
       <td>
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
@@ -303,6 +341,10 @@ function renderProfiles(data) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polygon points="6 4 20 12 6 20 6 4"/></svg>
             Run
           </button>
+          <button class="action-btn proxy-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Configure proxy">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Proxy
+          </button>
           <button class="action-btn danger delete-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Delete">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             Delete
@@ -333,6 +375,10 @@ function renderProfiles(data) {
 
   document.querySelectorAll('.run-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => startRunFlow(e.currentTarget.dataset.profileId));
+  });
+
+  document.querySelectorAll('.proxy-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => openProfileProxyModal(e.currentTarget.dataset.profileId));
   });
 
   document.querySelectorAll('.delete-btn').forEach((btn) => {
@@ -590,6 +636,7 @@ async function performBackup(
     showToast('Profile backed up successfully!');
     closeBackupModal();
     fetchProfiles(currentPage);
+    fetchProfileProxyInfo().then(() => fetchProfiles(currentPage));
 
     if (deleteAfter) {
       try {
@@ -1116,6 +1163,92 @@ function closeOrphanFoldersModal() {
   document.getElementById('orphanFoldersModal').classList.add('hidden');
 }
 
+let profileProxyTarget = null;
+
+async function openProfileProxyModal(profileId) {
+  profileProxyTarget = profileId;
+  document.getElementById('profileProxyId').textContent = profileId;
+  document.getElementById('profileProxyInput').value = '';
+  document.getElementById('profileProxyProtocol').value = 'HTTP';
+  document.getElementById('profileProxyModal').classList.remove('hidden');
+
+  try {
+    const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/proxy`);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to load proxy');
+    const info = data.proxyInfo || {};
+    if (info.host && info.port && info.proxyCategory !== 'noproxy') {
+      const user = info.proxyUserName || '';
+      const pass = info.proxyPassword || '';
+      document.getElementById('profileProxyInput').value =
+        user || pass ? `${info.host}:${info.port}:${user}:${pass}` : `${info.host}:${info.port}`;
+    }
+    if (
+      info.proxyCategory === 'HTTP' ||
+      info.proxyCategory === 'HTTPS' ||
+      info.proxyCategory === 'SOCKS5'
+    ) {
+      document.getElementById('profileProxyProtocol').value = info.proxyCategory;
+    }
+  } catch (error) {
+    console.error('Failed to load profile proxy:', error);
+    showToast(`Could not load proxy: ${error.message}`, 'error');
+  }
+}
+
+function closeProfileProxyModal() {
+  document.getElementById('profileProxyModal').classList.add('hidden');
+  profileProxyTarget = null;
+}
+
+async function submitProfileProxy() {
+  if (!profileProxyTarget) return;
+  const proxyText = document.getElementById('profileProxyInput').value;
+  const protocol = document.getElementById('profileProxyProtocol').value;
+  const confirmBtn = document.getElementById('confirmProfileProxyBtn');
+
+  let proxy;
+  try {
+    proxy = parseProxyString(proxyText);
+  } catch (error) {
+    showToast(error.message, 'error');
+    return;
+  }
+
+  const proxyInfo = proxy
+    ? {
+        moduleId: 0,
+        proxyMethod: 'custom',
+        proxyCategory: protocol,
+        ipType: 'IPV4',
+        host: proxy.host,
+        port: proxy.port,
+        proxyUserName: proxy.proxyUserName,
+        proxyPassword: proxy.proxyPassword,
+      }
+    : null;
+
+  setButtonLoading(confirmBtn, true);
+  try {
+    const response = await fetch(`/api/profiles/${encodeURIComponent(profileProxyTarget)}/proxy`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ proxyInfo }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to save proxy');
+    showToast('Proxy saved');
+    closeProfileProxyModal();
+    await fetchProfileProxyInfo();
+    fetchProfiles(currentPage);
+  } catch (error) {
+    console.error('Error saving profile proxy:', error);
+    showToast(`Failed to save proxy: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(confirmBtn, false);
+  }
+}
+
 function renderOrphanFolders() {
   const list = document.getElementById('orphanFoldersList');
   if (!orphanFolders || orphanFolders.length === 0) {
@@ -1578,6 +1711,8 @@ document.getElementById('cancelEditProxyBtn').addEventListener('click', closeEdi
 document.getElementById('confirmEditProxyBtn').addEventListener('click', submitEditProxy);
 document.getElementById('cleanOrphansBtn').addEventListener('click', openOrphanFoldersModal);
 document.getElementById('closeOrphanFoldersBtn').addEventListener('click', closeOrphanFoldersModal);
+document.getElementById('cancelProfileProxyBtn').addEventListener('click', closeProfileProxyModal);
+document.getElementById('confirmProfileProxyBtn').addEventListener('click', submitProfileProxy);
 document.getElementById('profileSelect').addEventListener('change', (e) => {
   autoFillBackupDescription(e.target.value);
 });
@@ -1585,3 +1720,4 @@ document.getElementById('profileSelect').addEventListener('change', (e) => {
 initDarkMode();
 fetchProfiles(1);
 fetchTags();
+fetchProfileProxyInfo().then(() => fetchProfiles(currentPage));
