@@ -145,6 +145,11 @@ export async function deleteProfile(profileId: string): Promise<void> {
 
 export async function getAllTags(): Promise<TagRecord[]> {
   return await prisma.tag.findMany({
+    where: {
+      profiles: {
+        some: {},
+      },
+    },
     orderBy: { name: 'asc' },
   });
 }

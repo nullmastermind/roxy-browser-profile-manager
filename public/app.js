@@ -23,9 +23,12 @@ function toggleDarkMode() {
   updateDarkModeIcon(isDarkMode);
 }
 
+const SUN_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>`;
+const MOON_ICON = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+
 function updateDarkModeIcon(isDarkMode) {
   const icon = document.getElementById('darkModeIcon');
-  icon.textContent = isDarkMode ? '[LIGHT]' : '[DARK]';
+  icon.innerHTML = isDarkMode ? SUN_ICON : MOON_ICON;
 }
 
 function showToast(message, type = 'success') {
@@ -113,18 +116,8 @@ function renderTags(tags) {
   tags.forEach((tag) => {
     const button = document.createElement('button');
     const isSelected = currentTagFilters.includes(tag.id);
-    button.style.padding = '3px 8px';
-    button.style.border = '1px solid var(--border-primary)';
-    if (isSelected) {
-      button.style.backgroundColor = 'var(--bg-tertiary)';
-      button.style.color = 'var(--text-primary)';
-      button.style.fontWeight = 'bold';
-      button.textContent = `[${tag.name.toUpperCase()}]`;
-    } else {
-      button.style.backgroundColor = 'var(--bg-secondary)';
-      button.style.color = 'var(--text-tertiary)';
-      button.textContent = tag.name.toUpperCase();
-    }
+    button.className = isSelected ? 'chip active' : 'chip';
+    button.textContent = tag.name;
     button.dataset.tagId = tag.id;
     button.addEventListener('click', () => toggleTagFilter(tag.id));
     tagsList.appendChild(button);
@@ -167,19 +160,11 @@ function updateTagFilterModeUI() {
   const andBtn = document.getElementById('tagFilterModeAnd');
 
   if (currentTagFilterMode === 'OR') {
-    orBtn.style.backgroundColor = 'var(--bg-tertiary)';
-    orBtn.style.color = 'var(--text-primary)';
-    orBtn.style.fontWeight = 'bold';
-    andBtn.style.backgroundColor = 'var(--bg-secondary)';
-    andBtn.style.color = 'var(--text-tertiary)';
-    andBtn.style.fontWeight = 'normal';
+    orBtn.classList.add('active');
+    andBtn.classList.remove('active');
   } else {
-    andBtn.style.backgroundColor = 'var(--bg-tertiary)';
-    andBtn.style.color = 'var(--text-primary)';
-    andBtn.style.fontWeight = 'bold';
-    orBtn.style.backgroundColor = 'var(--bg-secondary)';
-    orBtn.style.color = 'var(--text-tertiary)';
-    orBtn.style.fontWeight = 'normal';
+    andBtn.classList.add('active');
+    orBtn.classList.remove('active');
   }
 }
 
@@ -203,70 +188,72 @@ function renderProfiles(data) {
   tbody.innerHTML = '';
 
   if (data.profiles.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-2 text-center" style="color: var(--text-secondary); border-bottom: 1px solid var(--border-secondary); font-size: 11px;">// NO_PROFILES_FOUND</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">No profiles found</td></tr>`;
     return;
   }
 
   data.profiles.forEach((profile) => {
     const row = document.createElement('tr');
-    row.style.borderBottom = '1px solid var(--border-secondary)';
-    row.addEventListener('mouseenter', () => {
-      row.style.backgroundColor = 'var(--bg-hover)';
-    });
-    row.addEventListener('mouseleave', () => {
-      row.style.backgroundColor = '';
-    });
 
     const tagsHtml =
       profile.tags && profile.tags.length > 0
         ? profile.tags
             .map((tag) => {
               const isActive = currentTagFilters.includes(tag.id);
-              const tagStyle = isActive
-                ? 'background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-primary); font-weight: bold;'
-                : 'background-color: var(--bg-secondary); color: var(--text-tertiary); border: 1px solid var(--border-primary);';
-
+              const cls = isActive ? 'chip active' : 'chip';
               return `
-          <span class="inline-flex items-center gap-1 px-1 py-0.5 mr-1 mb-1 cursor-pointer" style="${tagStyle} font-size: 10px;" data-tag-id="${tag.id}" data-tag-name="${escapeHtml(tag.name)}">
-            <span class="tag-name-clickable">${isActive ? `[${escapeHtml(tag.name.toUpperCase())}]` : escapeHtml(tag.name.toUpperCase())}</span>
-            <button class="remove-tag-btn" data-profile-id="${escapeHtml(profile.profileId)}" data-tag-id="${tag.id}" title="Remove tag" style="color: var(--console-red); font-weight: bold;">x</button>
-          </span>
-        `;
+          <span class="${cls}" data-tag-id="${tag.id}" data-tag-name="${escapeHtml(tag.name)}">
+            <span class="tag-name-clickable">${escapeHtml(tag.name)}</span>
+            <button class="chip-remove remove-tag-btn" data-profile-id="${escapeHtml(profile.profileId)}" data-tag-id="${tag.id}" title="Remove tag" aria-label="Remove tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </span>`;
             })
             .join('')
         : '';
 
     row.innerHTML = `
-      <td class="px-3 py-1" style="color: var(--text-primary); border-right: 1px solid var(--border-secondary); width: 12%; font-size: 11px; font-weight: bold;">${escapeHtml(profile.profileId)}</td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 25%;">
+      <td><span class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(profile.profileId)}</span></td>
+      <td>
         <input type="text"
                value="${escapeHtml(profile.description || '')}"
                data-profile-id="${escapeHtml(profile.profileId)}"
-               class="description-input w-full px-2 py-1 focus:outline-none"
-               style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary); font-size: 11px;"
-               placeholder="description...">
+               class="description-input row-description-input"
+               placeholder="Add description...">
       </td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 13%;">
+      <td>
         <div class="flex flex-wrap items-center gap-1">
           ${tagsHtml}
-          <button class="add-tag-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Add tag" style="border: 1px solid var(--border-primary); background-color: var(--bg-secondary); color: var(--text-tertiary); padding: 2px 6px; font-size: 10px;">[+]</button>
+          <button class="chip-add add-tag-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Add tag">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add
+          </button>
         </div>
       </td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 10%; font-size: 10px;">
-        <span class="size-value" data-profile-id="${escapeHtml(profile.profileId)}">${formatSize(profile.backupSizeInBytes)}</span>
-        <span class="refresh-size-icon" data-profile-id="${escapeHtml(profile.profileId)}" title="Recalculate size" style="cursor: pointer; margin-left: 4px; font-size: 14px; color: var(--text-tertiary);">↻</span>
+      <td>
+        <div class="flex items-center gap-1">
+          <span class="size-value mono" data-profile-id="${escapeHtml(profile.profileId)}" style="color: var(--text-secondary);">${formatSize(profile.backupSizeInBytes)}</span>
+          <span class="refresh-size-icon" data-profile-id="${escapeHtml(profile.profileId)}" title="Recalculate size">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </span>
+        </div>
       </td>
-      <td class="px-3 py-1" style="color: var(--text-secondary); border-right: 1px solid var(--border-secondary); width: 13%; font-size: 10px;">${formatDate(profile.createdAt)}</td>
-      <td class="px-3 py-1" style="width: 27%; font-size: 10px;">
-        <button class="backup-to-btn mr-2" data-profile-id="${escapeHtml(profile.profileId)}" style="color: var(--console-green); background: none; border: none; padding: 0; font-weight: bold;">
-          [BACKUP]
-        </button>
-        <button class="restore-btn mr-2" data-profile-id="${escapeHtml(profile.profileId)}" style="color: var(--console-blue); background: none; border: none; padding: 0; font-weight: bold;">
-          [RESTORE]
-        </button>
-        <button class="delete-btn" data-profile-id="${escapeHtml(profile.profileId)}" style="color: var(--console-red); background: none; border: none; padding: 0; font-weight: bold;">
-          [DELETE]
-        </button>
+      <td><span class="mono" style="color: var(--text-muted); font-size: 11.5px;">${formatDate(profile.createdAt)}</span></td>
+      <td>
+        <div class="flex items-center gap-1">
+          <button class="action-btn success backup-to-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Backup">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            Backup
+          </button>
+          <button class="action-btn info restore-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Restore">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M3 9v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/><polyline points="7 12 12 17 17 12"/><line x1="12" y1="17" x2="12" y2="3"/></svg>
+            Restore
+          </button>
+          <button class="action-btn danger delete-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Delete">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Delete
+          </button>
+        </div>
       </td>
     `;
     tbody.appendChild(row);
@@ -281,25 +268,28 @@ function renderProfiles(data) {
   });
 
   document.querySelectorAll('.backup-to-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => openBackupModalWithTarget(e.target.dataset.profileId));
+    btn.addEventListener('click', (e) =>
+      openBackupModalWithTarget(e.currentTarget.dataset.profileId),
+    );
   });
 
   document.querySelectorAll('.restore-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => openRestoreModal(e.target.dataset.profileId));
+    btn.addEventListener('click', (e) => openRestoreModal(e.currentTarget.dataset.profileId));
   });
 
   document.querySelectorAll('.delete-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => confirmDeleteProfile(e.target.dataset.profileId));
+    btn.addEventListener('click', (e) => confirmDeleteProfile(e.currentTarget.dataset.profileId));
   });
 
   document.querySelectorAll('.add-tag-btn').forEach((btn) => {
-    btn.addEventListener('click', (e) => openAddTagModal(e.target.dataset.profileId));
+    btn.addEventListener('click', (e) => openAddTagModal(e.currentTarget.dataset.profileId));
   });
 
   document.querySelectorAll('.remove-tag-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      removeTag(e.target.dataset.profileId, e.target.dataset.tagId);
+      const target = e.currentTarget;
+      removeTag(target.dataset.profileId, target.dataset.tagId);
     });
   });
 
@@ -316,7 +306,7 @@ function renderProfiles(data) {
 
   document.querySelectorAll('.refresh-size-icon').forEach((icon) => {
     icon.addEventListener('click', (e) => {
-      recalculateProfileSize(e.target.dataset.profileId);
+      recalculateProfileSize(e.currentTarget.dataset.profileId);
     });
   });
 }
@@ -326,7 +316,7 @@ function updatePagination(data) {
   const prevBtn = document.getElementById('prevBtn');
   const nextBtn = document.getElementById('nextBtn');
 
-  pageInfo.textContent = `PAGE: ${data.page}/${data.totalPages} | TOTAL: ${data.total}`;
+  pageInfo.textContent = `Page ${data.page} of ${data.totalPages} · ${data.total} profile${data.total === 1 ? '' : 's'}`;
   prevBtn.disabled = data.page <= 1;
   nextBtn.disabled = data.page >= data.totalPages;
 }
@@ -347,8 +337,8 @@ async function updateDescription(input) {
       throw new Error(data.error || 'Failed to update description');
     }
 
-    input.classList.add('border-green-500');
-    setTimeout(() => input.classList.remove('border-green-500'), 2000);
+    input.classList.add('saved');
+    setTimeout(() => input.classList.remove('saved'), 1500);
   } catch (error) {
     console.error('Error updating description:', error);
     showToast(`Failed to update description: ${error.message}`, 'error');
@@ -473,16 +463,20 @@ async function confirmBackup() {
 
   if (targetProfileId) {
     const confirmModal = document.createElement('div');
-    confirmModal.className = 'fixed inset-0 flex items-center justify-center';
-    confirmModal.style.backgroundColor = 'var(--modal-overlay)';
+    confirmModal.className = 'modal-overlay';
     confirmModal.innerHTML = `
-      <div class="p-4 max-w-md" style="background-color: var(--bg-secondary); border: 2px solid var(--border-primary);">
-        <h3 class="mb-3 pb-2" style="color: var(--text-primary); border-bottom: 2px solid var(--border-primary); font-size: 12px; font-weight: bold; letter-spacing: 1px;">&gt; CONFIRM_OVERWRITE</h3>
-        <p class="mb-4" style="color: var(--text-tertiary); font-size: 11px;">OVERWRITE BACKUP: <strong style="color: var(--text-primary);">${escapeHtml(targetProfileId)}</strong></p>
-        <p class="mb-4" style="color: var(--console-orange); font-size: 10px; font-weight: bold;">! WARNING: All existing files will be deleted and replaced</p>
-        <div class="flex gap-2 justify-end pt-2" style="border-top: 2px solid var(--border-primary);">
-          <button id="cancelOverwrite" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">[ESC]</button>
-          <button id="proceedOverwrite" style="background-color: var(--bg-tertiary); color: var(--console-orange); padding: 4px 12px; font-weight: bold;">[PROCEED]</button>
+      <div class="modal-card">
+        <div class="modal-header">Confirm overwrite</div>
+        <div class="modal-body">
+          <p style="color: var(--text-secondary); margin-bottom: 10px;">Overwrite existing backup: <span class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(targetProfileId)}</span>?</p>
+          <div class="alert-warning">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>All existing files will be deleted and replaced.</span>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="cancelOverwrite" class="btn">Cancel</button>
+          <button id="proceedOverwrite" class="btn-danger">Overwrite</button>
         </div>
       </div>
     `;
@@ -638,9 +632,8 @@ async function recalculateProfileSize(profileId) {
     return;
   }
 
-  // Add loading state
-  const originalIcon = icon.textContent;
-  icon.textContent = '⟳';
+  const originalHtml = icon.innerHTML;
+  icon.innerHTML = '<span class="spinner" style="width:11px;height:11px;"></span>';
   icon.style.cursor = 'wait';
   icon.style.pointerEvents = 'none';
 
@@ -659,7 +652,6 @@ async function recalculateProfileSize(profileId) {
       throw new Error(data.error || 'Failed to recalculate size');
     }
 
-    // Update the size display
     const sizeInBytes = BigInt(data.backupSizeInBytes);
     sizeValue.textContent = formatSize(sizeInBytes);
 
@@ -668,8 +660,7 @@ async function recalculateProfileSize(profileId) {
     console.error('Error recalculating size:', error);
     showToast(`Failed to recalculate size: ${error.message}`, 'error');
   } finally {
-    // Restore icon state
-    icon.textContent = originalIcon;
+    icon.innerHTML = originalHtml;
     icon.style.cursor = 'pointer';
     icon.style.pointerEvents = 'auto';
   }
@@ -683,17 +674,21 @@ function escapeHtml(text) {
 
 async function confirmDeleteProfile(profileId) {
   const confirmModal = document.createElement('div');
-  confirmModal.className = 'fixed inset-0 flex items-center justify-center';
-  confirmModal.style.backgroundColor = 'var(--modal-overlay)';
+  confirmModal.className = 'modal-overlay';
   confirmModal.innerHTML = `
-    <div class="p-4 max-w-md" style="background-color: var(--bg-secondary); border: 2px solid var(--border-primary);">
-      <h3 class="mb-3 pb-2" style="color: var(--text-primary); border-bottom: 2px solid var(--border-primary); font-size: 12px; font-weight: bold; letter-spacing: 1px;">&gt; CONFIRM_DELETE</h3>
-      <p class="mb-4" style="color: var(--text-tertiary); font-size: 11px;">DELETE PROFILE: <strong style="color: var(--text-primary);">${escapeHtml(profileId)}</strong></p>
-      <p class="mb-4" style="color: var(--console-red); font-size: 10px; font-weight: bold;">! WARNING: This will permanently delete backup files and database record</p>
-      <div class="flex gap-2 justify-end pt-2" style="border-top: 2px solid var(--border-primary);">
-        <button id="cancelDelete" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">[ESC]</button>
-        <button id="proceedDelete" style="background-color: var(--bg-tertiary); color: var(--console-red); padding: 4px 12px; font-weight: bold;">
-          <span class="btn-text">[DELETE]</span>
+    <div class="modal-card">
+      <div class="modal-header">Delete profile</div>
+      <div class="modal-body">
+        <p style="color: var(--text-secondary); margin-bottom: 10px;">Permanently delete <span class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(profileId)}</span>?</p>
+        <div class="alert-danger">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>Backup files and the database record will be removed. This cannot be undone.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelDelete" class="btn">Cancel</button>
+        <button id="proceedDelete" class="btn-danger">
+          <span class="btn-text">Delete</span>
         </button>
       </div>
     </div>
@@ -731,65 +726,130 @@ async function confirmDeleteProfile(profileId) {
 }
 
 async function openAddTagModal(profileId) {
-  const tagInput = prompt('Enter tag name(s) (separate multiple tags with commas):');
-  if (!tagInput || tagInput.trim() === '') {
-    return;
-  }
+  const modal = document.createElement('div');
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-card">
+      <div class="modal-header">Add tag</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Profile</span>
+          <div class="mono" style="color: var(--text-primary); font-weight: 500;">${escapeHtml(profileId)}</div>
+        </div>
+        <div class="field">
+          <label for="addTagInput" class="modal-label">Tag name(s)</label>
+          <input type="text" id="addTagInput" class="w-full" placeholder="tag1, tag2, ...">
+          <p class="modal-help">Separate multiple tags with commas.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelAddTag" class="btn">Cancel</button>
+        <button id="confirmAddTag" class="btn-primary">
+          <span class="btn-text">Add</span>
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
 
-  const tagNames = tagInput
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter((tag) => tag !== '');
+  const input = modal.querySelector('#addTagInput');
+  const confirmBtn = modal.querySelector('#confirmAddTag');
+  const cancelBtn = modal.querySelector('#cancelAddTag');
+  input.focus();
 
-  if (tagNames.length === 0) {
-    return;
-  }
+  const close = () => {
+    document.removeEventListener('keydown', escHandler);
+    if (modal.parentNode) {
+      document.body.removeChild(modal);
+    }
+  };
 
-  try {
-    let successCount = 0;
-    let failCount = 0;
-    const errors = [];
+  const escHandler = (e) => {
+    if (e.key === 'Escape') {
+      close();
+    }
+  };
+  document.addEventListener('keydown', escHandler);
 
-    for (const tagName of tagNames) {
-      try {
-        const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/tags`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tagName }),
-        });
+  cancelBtn.addEventListener('click', close);
 
-        const data = await response.json();
+  const submit = async () => {
+    const tagInput = input.value;
+    if (!tagInput || tagInput.trim() === '') {
+      close();
+      return;
+    }
 
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to add tag');
+    const tagNames = tagInput
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag !== '');
+
+    if (tagNames.length === 0) {
+      close();
+      return;
+    }
+
+    setButtonLoading(confirmBtn, true);
+
+    try {
+      let successCount = 0;
+      let failCount = 0;
+      const errors = [];
+
+      for (const tagName of tagNames) {
+        try {
+          const response = await fetch(`/api/profiles/${encodeURIComponent(profileId)}/tags`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tagName }),
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to add tag');
+          }
+
+          successCount++;
+        } catch (error) {
+          failCount++;
+          errors.push(`${tagName}: ${error.message}`);
         }
-
-        successCount++;
-      } catch (error) {
-        failCount++;
-        errors.push(`${tagName}: ${error.message}`);
       }
-    }
 
-    if (successCount > 0) {
-      const message =
-        tagNames.length === 1
-          ? 'Tag added successfully!'
-          : `${successCount} tag(s) added successfully!`;
-      showToast(message);
-      fetchProfiles(currentPage);
-      fetchTags();
-    }
+      if (successCount > 0) {
+        const message =
+          tagNames.length === 1
+            ? 'Tag added successfully!'
+            : `${successCount} tag(s) added successfully!`;
+        showToast(message);
+        fetchProfiles(currentPage);
+        fetchTags();
+      }
 
-    if (failCount > 0) {
-      const errorMessage =
-        failCount === 1 ? `Failed to add tag: ${errors[0]}` : `Failed to add ${failCount} tag(s)`;
-      showToast(errorMessage, 'error');
+      if (failCount > 0) {
+        const errorMessage =
+          failCount === 1 ? `Failed to add tag: ${errors[0]}` : `Failed to add ${failCount} tag(s)`;
+        showToast(errorMessage, 'error');
+      }
+
+      close();
+    } catch (error) {
+      console.error('Error adding tag:', error);
+      showToast(`Failed to add tag: ${error.message}`, 'error');
+      setButtonLoading(confirmBtn, false);
     }
-  } catch (error) {
-    console.error('Error adding tag:', error);
-    showToast(`Failed to add tag: ${error.message}`, 'error');
-  }
+  };
+
+  confirmBtn.addEventListener('click', submit);
+
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    }
+  });
 }
 
 async function removeTag(profileId, tagId) {

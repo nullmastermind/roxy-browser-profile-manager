@@ -5,350 +5,795 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RoxyBrowser Profile Manager</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #f5f5f5;
-      --bg-secondary: #ffffff;
-      --bg-tertiary: #e8e8e8;
-      --bg-hover: #ebebeb;
-      --text-primary: #000000;
-      --text-secondary: #555555;
-      --text-tertiary: #333333;
-      --border-primary: #cccccc;
-      --border-secondary: #dddddd;
-      --modal-overlay: rgba(0, 0, 0, 0.6);
-      --toast-success-bg: #e6ffe6;
-      --toast-success-border: #00cc00;
-      --toast-success-text: #006600;
-      --toast-error-bg: #ffe6e6;
-      --toast-error-border: #cc0000;
-      --toast-error-text: #660000;
-      --warning-bg: #fff9e6;
-      --warning-border: #ffcc00;
-      --warning-text: #664400;
-      --console-green: #00ff00;
-      --console-blue: #0066ff;
-      --console-red: #ff0000;
-      --console-orange: #ff9900;
-      --console-cyan: #00cccc;
+      --bg-app: #f7f8fa;
+      --bg-surface: #ffffff;
+      --bg-muted: #f1f3f5;
+      --bg-hover: #f5f7fa;
+      --bg-input: #ffffff;
+      --bg-chip: #eef1f5;
+      --bg-chip-active: #e0e7ff;
+
+      --text-primary: #111827;
+      --text-secondary: #4b5563;
+      --text-muted: #6b7280;
+      --text-faint: #9ca3af;
+      --text-on-accent: #ffffff;
+
+      --border: #e5e7eb;
+      --border-strong: #d1d5db;
+      --border-focus: #6366f1;
+
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-soft: #eef2ff;
+
+      --success: #16a34a;
+      --success-soft: #dcfce7;
+      --success-border: #86efac;
+
+      --danger: #dc2626;
+      --danger-hover: #b91c1c;
+      --danger-soft: #fee2e2;
+      --danger-border: #fca5a5;
+
+      --warning: #b45309;
+      --warning-soft: #fef3c7;
+      --warning-border: #fcd34d;
+
+      --info: #0369a1;
+      --info-soft: #e0f2fe;
+      --info-border: #7dd3fc;
+
+      --modal-overlay: rgba(17, 24, 39, 0.45);
     }
 
     body.dark-mode {
-      --bg-primary: #0a0a0a;
-      --bg-secondary: #1a1a1a;
-      --bg-tertiary: #2a2a2a;
-      --bg-hover: #333333;
-      --text-primary: #c0c0c0;
-      --text-secondary: #909090;
-      --text-tertiary: #b0b0b0;
-      --border-primary: #404040;
-      --border-secondary: #2a2a2a;
-      --modal-overlay: rgba(0, 0, 0, 0.85);
-      --toast-success-bg: #0d2818;
-      --toast-success-border: #66cc99;
-      --toast-success-text: #88ffbb;
-      --toast-error-bg: #2a1010;
-      --toast-error-border: #cc6666;
-      --toast-error-text: #ff9999;
-      --warning-bg: #2a2410;
-      --warning-border: #ccaa66;
-      --warning-text: #ffdd99;
-      --console-green: #88ff88;
-      --console-blue: #88ccff;
-      --console-red: #ff8888;
-      --console-orange: #ffbb77;
-      --console-cyan: #88ffff;
+      --bg-app: #0b0d12;
+      --bg-surface: #14171d;
+      --bg-muted: #1b1f27;
+      --bg-hover: #1f242d;
+      --bg-input: #11141a;
+      --bg-chip: #1f242d;
+      --bg-chip-active: #2c2f4a;
+
+      --text-primary: #e5e7eb;
+      --text-secondary: #b6bcc7;
+      --text-muted: #8a92a2;
+      --text-faint: #6b7280;
+      --text-on-accent: #ffffff;
+
+      --border: #262b34;
+      --border-strong: #353b46;
+      --border-focus: #818cf8;
+
+      --accent: #818cf8;
+      --accent-hover: #a5b4fc;
+      --accent-soft: #1e1f3a;
+
+      --success: #4ade80;
+      --success-soft: #0e2e1e;
+      --success-border: #15803d;
+
+      --danger: #f87171;
+      --danger-hover: #ef4444;
+      --danger-soft: #2a1212;
+      --danger-border: #7f1d1d;
+
+      --warning: #fbbf24;
+      --warning-soft: #2a1f0a;
+      --warning-border: #92400e;
+
+      --info: #38bdf8;
+      --info-soft: #0a2236;
+      --info-border: #075985;
+
+      --modal-overlay: rgba(0, 0, 0, 0.6);
     }
 
     * {
-      font-family: Consolas, 'Courier New', monospace;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
     }
 
     body {
       margin: 0;
       padding: 0;
-      background-color: var(--bg-primary);
+      background-color: var(--bg-app);
       color: var(--text-primary);
-      transition: background-color 0.1s, color 0.1s;
-      letter-spacing: 0.5px;
+      font-size: 13px;
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.15s, color 0.15s;
     }
 
-    .toast {
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      padding: 8px 16px;
-      border: 2px solid;
-      z-index: 1000;
-      animation: slideIn 0.2s ease-out;
-      min-width: 300px;
+    .mono {
+      font-family: 'JetBrains Mono', 'SF Mono', Consolas, 'Courier New', monospace;
       font-size: 12px;
-      letter-spacing: 0.5px;
-    }
-    .toast.success {
-      background-color: var(--toast-success-bg);
-      border-color: var(--toast-success-border);
-      color: var(--toast-success-text);
-    }
-    .toast.success::before {
-      content: '[OK] ';
-      font-weight: bold;
-    }
-    .toast.error {
-      background-color: var(--toast-error-bg);
-      border-color: var(--toast-error-border);
-      color: var(--toast-error-text);
-    }
-    .toast.error::before {
-      content: '[ERROR] ';
-      font-weight: bold;
-    }
-    @keyframes slideIn {
-      from {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(0);
-        opacity: 1;
-      }
-    }
-    @keyframes slideOut {
-      from {
-        transform: translateX(0);
-        opacity: 1;
-      }
-      to {
-        transform: translateX(100%);
-        opacity: 0;
-      }
-    }
-    .toast.hiding {
-      animation: slideOut 0.2s ease-out;
-      animation-fill-mode: forwards;
-    }
-    .spinner {
-      border: 2px solid var(--border-primary);
-      border-top-color: var(--text-primary);
-      border-radius: 0;
-      width: 12px;
-      height: 12px;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-      margin-right: 6px;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
     }
 
+    /* ---------- Buttons ---------- */
     button {
-      font-family: Consolas, 'Courier New', monospace;
       cursor: pointer;
-      border: 1px solid var(--border-primary);
-      transition: all 0.1s;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      font-size: 11px;
+      border: 1px solid transparent;
+      transition: background-color 0.12s, border-color 0.12s, color 0.12s;
+      font-weight: 500;
+      font-size: 12.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      user-select: none;
     }
-    button:hover:not(:disabled) {
-      border-color: var(--text-primary);
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
     button:active:not(:disabled) {
       transform: translateY(1px);
     }
 
-    input, select, textarea {
-      font-family: Consolas, 'Courier New', monospace;
-      letter-spacing: 0.5px;
-      font-size: 12px;
-    }
-
-    #darkModeToggle {
-      background-color: var(--bg-tertiary);
+    .btn {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background-color: var(--bg-surface);
       color: var(--text-primary);
-      border: 2px solid var(--border-primary);
-      padding: 4px 10px;
-      cursor: pointer;
-      font-size: 14px;
+      height: 30px;
     }
-    #darkModeToggle:hover {
-      border-color: var(--text-primary);
+    .btn:hover:not(:disabled) {
+      background-color: var(--bg-hover);
+      border-color: var(--border-strong);
     }
 
+    .btn-primary {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--accent);
+      background-color: var(--accent);
+      color: var(--text-on-accent);
+      height: 30px;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-danger {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--danger);
+      background-color: var(--danger);
+      color: var(--text-on-accent);
+      height: 30px;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background-color: var(--danger-hover);
+      border-color: var(--danger-hover);
+    }
+
+    .btn-ghost {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid transparent;
+      background-color: transparent;
+      color: var(--text-secondary);
+      height: 30px;
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background-color: var(--bg-muted);
+      color: var(--text-primary);
+    }
+
+    .btn-icon {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      justify-content: center;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background-color: var(--bg-surface);
+      color: var(--text-secondary);
+    }
+    .btn-icon:hover:not(:disabled) {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    /* Toggle group (AND/OR) */
+    .toggle-group {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background-color: var(--bg-surface);
+      height: 30px;
+    }
+    .toggle-group button {
+      border: 0;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 0 12px;
+      height: 100%;
+      font-weight: 500;
+      font-size: 12px;
+      border-radius: 0;
+    }
+    .toggle-group button + button {
+      border-left: 1px solid var(--border);
+    }
+    .toggle-group button.active {
+      background-color: var(--accent-soft);
+      color: var(--accent);
+      font-weight: 600;
+    }
+    .toggle-group button:not(.active):hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
+
+    /* ---------- Inputs ---------- */
+    input, select, textarea {
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text-primary);
+      background-color: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      height: 30px;
+      outline: none;
+      transition: border-color 0.12s;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--border-focus);
+    }
+    input::placeholder {
+      color: var(--text-faint);
+    }
+    select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 28px;
+    }
+
+    /* ---------- Table ---------- */
     table {
-      border-collapse: collapse;
+      width: 100%;
+      border-collapse: separate;
       border-spacing: 0;
+      font-size: 12.5px;
     }
-
-    th {
+    thead th {
+      position: sticky;
+      top: 0;
+      background-color: var(--bg-muted);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 11px;
       text-transform: uppercase;
-      font-weight: bold;
-      letter-spacing: 1px;
-      font-size: 10px;
+      letter-spacing: 0.5px;
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    tbody td {
+      padding: 6px 12px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-primary);
+      vertical-align: middle;
+    }
+    tbody tr {
+      transition: background-color 0.08s;
+    }
+    tbody tr:hover {
+      background-color: var(--bg-hover);
     }
 
+    /* ---------- Tags / Chips ---------- */
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background-color: var(--bg-chip);
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background-color 0.1s, color 0.1s, border-color 0.1s;
+    }
+    .chip:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+    }
+    .chip.active {
+      background-color: var(--bg-chip-active);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .chip .chip-remove {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      color: var(--text-muted);
+      background: transparent;
+      border: 0;
+      padding: 0;
+      margin-left: 2px;
+    }
+    .chip .chip-remove:hover {
+      background-color: var(--danger-soft);
+      color: var(--danger);
+    }
+    .chip-add {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background-color: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      border: 1px dashed var(--border-strong);
+      cursor: pointer;
+    }
+    .chip-add:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+      background-color: var(--accent-soft);
+    }
+
+    /* ---------- Row action buttons ---------- */
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background-color: var(--bg-surface);
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+    .action-btn:hover {
+      background-color: var(--bg-hover);
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    .action-btn.success {
+      color: var(--success);
+    }
+    .action-btn.success:hover {
+      background-color: var(--success-soft);
+      border-color: var(--success-border);
+    }
+    .action-btn.info {
+      color: var(--info);
+    }
+    .action-btn.info:hover {
+      background-color: var(--info-soft);
+      border-color: var(--info-border);
+    }
+    .action-btn.danger {
+      color: var(--danger);
+    }
+    .action-btn.danger:hover {
+      background-color: var(--danger-soft);
+      border-color: var(--danger-border);
+    }
+
+    .row-description-input {
+      width: 100%;
+      height: 28px;
+      padding: 4px 8px;
+      font-size: 12.5px;
+      background-color: transparent;
+      border: 1px solid transparent;
+    }
+    .row-description-input:hover {
+      background-color: var(--bg-input);
+      border-color: var(--border);
+    }
+    .row-description-input:focus {
+      background-color: var(--bg-input);
+      border-color: var(--border-focus);
+    }
+    .row-description-input.saved {
+      border-color: var(--success);
+    }
+
+    /* ---------- Refresh icon ---------- */
     .refresh-size-icon {
-      display: inline-block;
-      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      color: var(--text-faint);
+      transition: transform 0.3s, color 0.12s, background-color 0.12s;
       user-select: none;
     }
     .refresh-size-icon:hover {
-      color: var(--text-primary);
+      background-color: var(--bg-muted);
+      color: var(--accent);
       transform: rotate(180deg);
     }
     .refresh-size-icon:active {
       transform: rotate(360deg);
     }
 
-    ::placeholder {
-      color: var(--text-secondary);
-      opacity: 0.7;
+    /* ---------- Toast ---------- */
+    #toastContainer {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
+    .toast {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      border: 1px solid;
+      min-width: 280px;
+      max-width: 420px;
+      font-size: 13px;
+      font-weight: 500;
+      animation: slideIn 0.18s ease-out;
+      background-color: var(--bg-surface);
+    }
+    .toast::before {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .toast.success {
+      border-color: var(--success-border);
+      color: var(--success);
+      background-color: var(--success-soft);
+    }
+    .toast.success::before { background-color: var(--success); }
+    .toast.error {
+      border-color: var(--danger-border);
+      color: var(--danger);
+      background-color: var(--danger-soft);
+    }
+    .toast.error::before { background-color: var(--danger); }
+    @keyframes slideIn {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(20px); opacity: 0; }
+    }
+    .toast.hiding {
+      animation: slideOut 0.18s ease-out forwards;
+    }
+
+    /* ---------- Spinner ---------- */
+    .spinner {
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 999px;
+      width: 12px;
+      height: 12px;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+      opacity: 0.8;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ---------- Modal ---------- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background-color: var(--modal-overlay);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 24px;
+    }
+    .modal-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 100%;
+      max-width: 440px;
+      overflow: hidden;
+    }
+    .modal-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .modal-body {
+      padding: 16px 18px;
+    }
+    .modal-footer {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background-color: var(--bg-muted);
+    }
+    .modal-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .modal-help {
+      margin-top: 4px;
+      color: var(--text-faint);
+      font-size: 11px;
+    }
+    .field {
+      margin-bottom: 12px;
+    }
+    .field:last-child {
+      margin-bottom: 0;
+    }
+    .alert-warning {
+      padding: 10px 12px;
+      border-radius: 6px;
+      background-color: var(--warning-soft);
+      border: 1px solid var(--warning-border);
+      color: var(--warning);
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .alert-danger {
+      padding: 10px 12px;
+      border-radius: 6px;
+      background-color: var(--danger-soft);
+      border: 1px solid var(--danger-border);
+      color: var(--danger);
+      font-size: 12px;
+      font-weight: 500;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* ---------- Layout chrome ---------- */
+    .topbar, .filterbar, .footer {
+      background-color: var(--bg-surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .footer {
+      border-top: 1px solid var(--border);
+      border-bottom: 0;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+    .brand-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background-color: var(--accent);
+    }
+
+    .filter-label {
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      min-width: 52px;
+    }
+
+    .pageinfo {
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    /* Subtle scrollbar */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
   </style>
 </head>
-<body class="h-screen overflow-hidden" style="background-color: var(--bg-primary);">
+<body>
   <div class="h-full flex flex-col">
-    <div style="background-color: var(--bg-secondary); border-bottom: 2px solid var(--border-primary);">
+    <header class="topbar">
       <div class="flex justify-between items-center px-4 py-2">
-        <h1 style="color: var(--text-primary); font-size: 14px; font-weight: bold; letter-spacing: 2px;">&gt; ROXYBROWSER_PROFILE_MANAGER</h1>
+        <div class="brand">
+          <span class="brand-dot"></span>
+          <span>RoxyBrowser Profile Manager</span>
+        </div>
         <div class="flex items-center gap-2">
-          <button id="darkModeToggle" title="Toggle dark mode">
-            <span id="darkModeIcon">🌙</span>
+          <button id="darkModeToggle" class="btn-icon" title="Toggle theme" aria-label="Toggle theme">
+            <span id="darkModeIcon" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </span>
           </button>
-          <button id="calculateSizeBtn" style="background-color: var(--bg-tertiary); color: var(--text-primary); padding: 4px 12px;" class="disabled:opacity-50 disabled:cursor-not-allowed">
-            <span class="btn-text">[Σ] Calculate Total Size</span>
+          <button id="calculateSizeBtn" class="btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="10" y2="14"/><line x1="13" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="10" y2="18"/><line x1="13" y1="18" x2="16" y2="18"/></svg>
+            <span class="btn-text">Calculate total size</span>
           </button>
-          <button id="backupBtn" style="background-color: var(--bg-tertiary); color: var(--text-primary); padding: 4px 12px;" class="disabled:opacity-50 disabled:cursor-not-allowed">
-            <span class="btn-text">[+] Backup</span>
+          <button id="backupBtn" class="btn-primary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            <span class="btn-text">New backup</span>
           </button>
         </div>
       </div>
-    </div>
+    </header>
 
-    <div style="background-color: var(--bg-secondary); border-bottom: 2px solid var(--border-primary);" class="px-4 py-2">
-      <div class="flex items-center gap-2 mb-1">
-        <label for="searchInput" style="color: var(--text-tertiary); font-size: 11px; min-width: 60px;">SEARCH:</label>
-        <input
-          type="text"
-          id="searchInput"
-          placeholder="profile_id | description..."
-          class="flex-1 px-2 py-1 focus:outline-none"
-          style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary); font-size: 11px;"
-        />
-        <button id="clearSearchBtn" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 8px;">
-          [X]
+    <div class="filterbar px-4 py-2 flex flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <span class="filter-label">Search</span>
+        <div class="flex-1 relative">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color: var(--text-faint); pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            type="text"
+            id="searchInput"
+            placeholder="Search by profile ID or description..."
+            class="w-full"
+            style="padding-left: 32px;"
+          />
+        </div>
+        <button id="clearSearchBtn" class="btn-ghost" title="Clear search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          Clear
         </button>
       </div>
       <div class="flex items-center gap-2 flex-wrap">
-        <span style="color: var(--text-tertiary); font-size: 11px; min-width: 60px;">FILTER:</span>
-        <div class="flex items-center" style="border: 1px solid var(--border-primary); background-color: var(--bg-secondary);">
-          <button id="tagFilterModeAnd" style="padding: 4px 8px; border-right: 1px solid var(--border-primary); background-color: var(--bg-tertiary); color: var(--text-primary);">
-            AND
-          </button>
-          <button id="tagFilterModeOr" style="padding: 4px 8px; background-color: var(--bg-secondary); color: var(--text-tertiary);">
-            OR
-          </button>
+        <span class="filter-label">Tags</span>
+        <div class="toggle-group" role="group" aria-label="Tag filter mode">
+          <button id="tagFilterModeAnd" class="active">AND</button>
+          <button id="tagFilterModeOr">OR</button>
         </div>
-        <button id="clearTagFilter" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 8px;">
-          [CLEAR]
-        </button>
-        <div id="tagsList" class="flex gap-1 flex-wrap">
-        </div>
+        <button id="clearTagFilter" class="btn-ghost">Clear</button>
+        <div id="tagsList" class="flex gap-1 flex-wrap items-center"></div>
       </div>
     </div>
 
-    <div class="flex-1 overflow-auto">
-      <div id="profilesTable" class="h-full">
-        <table class="min-w-full">
-          <thead class="sticky top-0" style="background-color: var(--bg-tertiary); border-bottom: 2px solid var(--border-primary);">
-            <tr>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); border-right: 1px solid var(--border-primary); width: 12%;">PROFILE_ID</th>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); border-right: 1px solid var(--border-primary); width: 25%;">DESCRIPTION</th>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); border-right: 1px solid var(--border-primary); width: 13%;">TAGS</th>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); border-right: 1px solid var(--border-primary); width: 10%;">SIZE (MB)</th>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); border-right: 1px solid var(--border-primary); width: 13%;">TIMESTAMP</th>
-              <th class="px-3 py-2 text-left" style="color: var(--text-tertiary); width: 27%;">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody id="profilesBody" style="background-color: var(--bg-secondary);">
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <main class="flex-1 overflow-auto" style="background-color: var(--bg-surface);">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 14%;">Profile ID</th>
+            <th style="width: 26%;">Description</th>
+            <th style="width: 16%;">Tags</th>
+            <th style="width: 10%;">Size</th>
+            <th style="width: 14%;">Created</th>
+            <th style="width: 20%;">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="profilesBody"></tbody>
+      </table>
+    </main>
 
-    <div id="pagination" class="px-4 py-2 flex justify-between items-center" style="background-color: var(--bg-secondary); border-top: 2px solid var(--border-primary);">
-      <div id="pageInfo" style="color: var(--text-tertiary); font-size: 11px;"></div>
+    <footer id="pagination" class="footer px-4 py-2 flex justify-between items-center">
+      <div id="pageInfo" class="pageinfo"></div>
       <div class="flex gap-2">
-        <button id="prevBtn" class="disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">
-          [&lt;] PREV
+        <button id="prevBtn" class="btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          Prev
         </button>
-        <button id="nextBtn" class="disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">
-          NEXT [&gt;]
+        <button id="nextBtn" class="btn">
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
-    </div>
+    </footer>
   </div>
 
-  <div id="backupModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full" style="background-color: var(--modal-overlay);">
-    <div class="relative top-20 mx-auto p-4 w-96" style="border: 2px solid var(--border-primary); background-color: var(--bg-secondary);">
-      <div>
-        <h3 class="mb-3 pb-2" style="color: var(--text-primary); border-bottom: 2px solid var(--border-primary); font-size: 12px; font-weight: bold; letter-spacing: 1px;">&gt; BACKUP_NEW_PROFILE</h3>
-        <div class="mb-2">
-          <label class="block mb-1" style="color: var(--text-tertiary); font-size: 10px;">SOURCE_PROFILE:</label>
-          <select id="profileSelect" class="w-full px-2 py-1 focus:outline-none" style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary);">
+  <div id="backupModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">New backup</div>
+      <div class="modal-body">
+        <div class="field">
+          <label class="modal-label" for="profileSelect">Source profile</label>
+          <select id="profileSelect" class="w-full">
             <option value="">Loading...</option>
           </select>
         </div>
-        <div class="mb-2">
-          <label class="block mb-1" style="color: var(--text-tertiary); font-size: 10px;">TARGET_PROFILE (OPTIONAL):</label>
-          <select id="targetProfileSelect" class="w-full px-2 py-1 focus:outline-none" style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary);">
+        <div class="field">
+          <label class="modal-label" for="targetProfileSelect">Target profile <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
+          <select id="targetProfileSelect" class="w-full">
             <option value="">Create new backup</option>
           </select>
-          <p class="mt-1" style="color: var(--text-secondary); font-size: 9px;">// Leave empty to create new, or select to overwrite</p>
+          <p class="modal-help">Leave empty to create a new backup, or select an existing one to overwrite.</p>
         </div>
-        <div class="mb-3">
-          <label class="block mb-1" style="color: var(--text-tertiary); font-size: 10px;">DESCRIPTION (OPTIONAL):</label>
-          <input type="text" id="descriptionInput" class="w-full px-2 py-1 focus:outline-none" placeholder="description..." style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary);">
+        <div class="field">
+          <label class="modal-label" for="descriptionInput">Description <span style="font-weight:400; text-transform:none; color: var(--text-faint);">(optional)</span></label>
+          <input type="text" id="descriptionInput" class="w-full" placeholder="e.g. Production account, primary worker..." />
         </div>
-        <div class="flex gap-2 justify-end pt-2" style="border-top: 2px solid var(--border-primary);">
-          <button id="cancelBackupBtn" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">
-            [ESC]
-          </button>
-          <button id="confirmBackupBtn" class="disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: var(--bg-tertiary); color: var(--text-primary); padding: 4px 12px;">
-            <span class="btn-text">[EXEC]</span>
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelBackupBtn" class="btn">Cancel</button>
+        <button id="confirmBackupBtn" class="btn-primary">
+          <span class="btn-text">Start backup</span>
+        </button>
       </div>
     </div>
   </div>
 
-  <div id="restoreModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full" style="background-color: var(--modal-overlay);">
-    <div class="relative top-20 mx-auto p-4 w-96" style="border: 2px solid var(--border-primary); background-color: var(--bg-secondary);">
-      <div>
-        <h3 class="mb-3 pb-2" style="color: var(--text-primary); border-bottom: 2px solid var(--border-primary); font-size: 12px; font-weight: bold; letter-spacing: 1px;">&gt; RESTORE_PROFILE</h3>
-        <p class="mb-2" style="color: var(--text-secondary); font-size: 11px;">PROFILE: <span id="restoreProfileId" class="font-semibold" style="color: var(--text-primary);"></span></p>
-        <div class="mb-2">
-          <label class="block mb-1" style="color: var(--text-tertiary); font-size: 10px;">TARGET_FOLDER:</label>
-          <select id="targetFolderSelect" class="w-full px-2 py-1 focus:outline-none" style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary);">
+  <div id="restoreModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Restore profile</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Profile</span>
+          <div id="restoreProfileId" class="mono" style="color: var(--text-primary); font-weight: 500;"></div>
+        </div>
+        <div class="field">
+          <label class="modal-label" for="targetFolderSelect">Target folder</label>
+          <select id="targetFolderSelect" class="w-full">
             <option value="">Loading...</option>
           </select>
         </div>
-        <div class="mb-2">
-          <label class="block mb-1" style="color: var(--text-tertiary); font-size: 10px;">CUSTOM_PATH:</label>
-          <input type="text" id="customTargetFolderInput" class="w-full px-2 py-1 focus:outline-none" placeholder="custom_folder_path..." style="border: 1px solid var(--border-primary); background-color: var(--bg-primary); color: var(--text-primary);">
-          <p class="mt-1" style="color: var(--text-secondary); font-size: 9px;">// Custom path overrides dropdown selection</p>
+        <div class="field">
+          <label class="modal-label" for="customTargetFolderInput">Custom path</label>
+          <input type="text" id="customTargetFolderInput" class="w-full" placeholder="C:\\path\\to\\folder" />
+          <p class="modal-help">Custom path overrides the dropdown selection.</p>
         </div>
-        <div class="p-2 mb-3" style="background-color: var(--warning-bg); border: 2px solid var(--warning-border);">
-          <p style="color: var(--warning-text); font-size: 10px; font-weight: bold;">! WARNING: Target folder will be deleted and replaced</p>
+        <div class="alert-warning">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; margin-top:1px;"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <span>The target folder will be deleted and replaced with the backup contents.</span>
         </div>
-        <div class="flex gap-2 justify-end pt-2" style="border-top: 2px solid var(--border-primary);">
-          <button id="cancelRestoreBtn" style="background-color: var(--bg-tertiary); color: var(--text-tertiary); padding: 4px 12px;">
-            [ESC]
-          </button>
-          <button id="confirmRestoreBtn" class="disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: var(--bg-tertiary); color: var(--console-red); padding: 4px 12px; font-weight: bold;">
-            <span class="btn-text">[RESTORE]</span>
-          </button>
-        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelRestoreBtn" class="btn">Cancel</button>
+        <button id="confirmRestoreBtn" class="btn-danger">
+          <span class="btn-text">Restore</span>
+        </button>
       </div>
     </div>
   </div>
@@ -358,4 +803,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-
