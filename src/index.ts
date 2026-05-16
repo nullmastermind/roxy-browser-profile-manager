@@ -22,6 +22,14 @@ import {
   getAvailableProfiles,
   restoreProfile,
 } from './profileService.js';
+import {
+  createRoxyProfile,
+  deleteRoxyProfile,
+  getFirstWorkspaceId,
+  getProfileNameMap,
+  openRoxyProfile,
+} from './roxyApi.js';
+import { clearRunState, readRunState, writeRunState } from './runState.js';
 import type {
   AssignTagRequest,
   BackupRequest,
@@ -170,6 +178,85 @@ app.get('/api/available-profiles', async (_req, res) => {
   } catch (error) {
     console.error('Error fetching available profiles:', error);
     res.status(500).json({ error: 'Failed to fetch available profiles' } as ErrorResponse);
+  }
+});
+
+app.get('/api/roxy-profile-names', async (_req, res) => {
+  try {
+    const map = await getProfileNameMap();
+    res.json(map);
+  } catch (error) {
+    console.error('Error fetching Roxy profile names:', error);
+    res.status(500).json({ error: 'Failed to fetch Roxy profile names' } as ErrorResponse);
+  }
+});
+
+app.post('/api/roxy/create-profile', async (req, res) => {
+  try {
+    const { windowName, sourceProfileId } = (req.body ?? {}) as {
+      windowName?: string;
+      sourceProfileId?: string;
+    };
+    if (!sourceProfileId || typeof sourceProfileId !== 'string') {
+      return res.status(400).json({ error: 'sourceProfileId is required' } as ErrorResponse);
+    }
+    const name =
+      typeof windowName === 'string' && windowName.trim() !== ''
+        ? windowName.trim()
+        : 'Run profile';
+
+    const existing = await readRunState();
+
+    if (existing && existing.sourceProfileId === sourceProfileId) {
+      return res.json({
+        dirId: existing.dirId,
+        workspaceId: existing.workspaceId,
+        windowName: name,
+        reused: true,
+        replacedPrevious: false,
+      });
+    }
+
+    let replacedPrevious = false;
+    if (existing && existing.sourceProfileId !== sourceProfileId) {
+      try {
+        await deleteRoxyProfile(existing.workspaceId, [existing.dirId]);
+      } catch (error) {
+        console.error('Failed to delete previous Roxy profile (continuing):', error);
+      }
+      await clearRunState();
+      replacedPrevious = true;
+    }
+
+    const workspaceId = await getFirstWorkspaceId();
+    const dirId = await createRoxyProfile(workspaceId, name);
+    await writeRunState({
+      dirId,
+      sourceProfileId,
+      workspaceId,
+      updatedAt: new Date().toISOString(),
+    });
+    res.json({ dirId, workspaceId, windowName: name, reused: false, replacedPrevious });
+  } catch (error) {
+    console.error('Error creating Roxy profile:', error);
+    const message = error instanceof Error ? error.message : 'Failed to create Roxy profile';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
+app.post('/api/roxy/open-profile', async (req, res) => {
+  try {
+    const { dirId, workspaceId } = (req.body ?? {}) as { dirId?: string; workspaceId?: number };
+    if (!dirId || typeof dirId !== 'string') {
+      return res.status(400).json({ error: 'dirId is required' } as ErrorResponse);
+    }
+    const wsId = typeof workspaceId === 'number' ? workspaceId : await getFirstWorkspaceId();
+    const data = await openRoxyProfile(wsId, dirId);
+    res.json(data);
+  } catch (error) {
+    console.error('Error opening Roxy profile:', error);
+    const message = error instanceof Error ? error.message : 'Failed to open Roxy profile';
+    res.status(500).json({ error: message } as ErrorResponse);
   }
 });
 

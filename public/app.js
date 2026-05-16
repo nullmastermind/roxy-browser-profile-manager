@@ -5,6 +5,28 @@ let currentTagFilter = null;
 let currentSearchQuery = '';
 let currentTagFilters = [];
 let currentTagFilterMode = 'AND';
+let roxyProfileNames = {};
+
+async function fetchRoxyProfileNames() {
+  try {
+    const response = await fetch('/api/roxy-profile-names');
+    if (!response.ok) {
+      return roxyProfileNames;
+    }
+    const data = await response.json();
+    if (data && typeof data === 'object') {
+      roxyProfileNames = data;
+    }
+  } catch (error) {
+    console.error('Error fetching Roxy profile names:', error);
+  }
+  return roxyProfileNames;
+}
+
+function formatProfileLabel(id) {
+  const name = roxyProfileNames[id];
+  return name ? `${name} (${id})` : id;
+}
 
 function initDarkMode() {
   const savedTheme = localStorage.getItem('darkMode');
@@ -249,6 +271,10 @@ function renderProfiles(data) {
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M3 9v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/><polyline points="7 12 12 17 17 12"/><line x1="12" y1="17" x2="12" y2="3"/></svg>
             Restore
           </button>
+          <button class="action-btn warning run-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Run">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+            Run
+          </button>
           <button class="action-btn danger delete-btn" data-profile-id="${escapeHtml(profile.profileId)}" title="Delete">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             Delete
@@ -275,6 +301,10 @@ function renderProfiles(data) {
 
   document.querySelectorAll('.restore-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => openRestoreModal(e.currentTarget.dataset.profileId));
+  });
+
+  document.querySelectorAll('.run-btn').forEach((btn) => {
+    btn.addEventListener('click', (e) => startRunFlow(e.currentTarget.dataset.profileId));
   });
 
   document.querySelectorAll('.delete-btn').forEach((btn) => {
@@ -358,6 +388,7 @@ async function openBackupModal() {
     const [availableResponse, backedUpResponse] = await Promise.all([
       fetch('/api/available-profiles'),
       fetch('/api/profiles?page=1&pageSize=1000'),
+      fetchRoxyProfileNames(),
     ]);
 
     const availableProfiles = await availableResponse.json();
@@ -375,7 +406,7 @@ async function openBackupModal() {
     availableProfiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.name;
-      option.textContent = profile.name;
+      option.textContent = formatProfileLabel(profile.name);
       sourceSelect.appendChild(option);
     });
 
@@ -383,7 +414,7 @@ async function openBackupModal() {
     backedUpData.profiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.profileId;
-      option.textContent = profile.profileId;
+      option.textContent = formatProfileLabel(profile.profileId);
       targetSelect.appendChild(option);
     });
   } catch (error) {
@@ -406,6 +437,7 @@ async function openBackupModalWithTarget(targetProfileId) {
     const [availableResponse, backedUpResponse] = await Promise.all([
       fetch('/api/available-profiles'),
       fetch('/api/profiles?page=1&pageSize=1000'),
+      fetchRoxyProfileNames(),
     ]);
 
     const availableProfiles = await availableResponse.json();
@@ -423,7 +455,7 @@ async function openBackupModalWithTarget(targetProfileId) {
     availableProfiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.name;
-      option.textContent = profile.name;
+      option.textContent = formatProfileLabel(profile.name);
       sourceSelect.appendChild(option);
     });
 
@@ -431,7 +463,7 @@ async function openBackupModalWithTarget(targetProfileId) {
     backedUpData.profiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.profileId;
-      option.textContent = profile.profileId;
+      option.textContent = formatProfileLabel(profile.profileId);
       targetSelect.appendChild(option);
     });
 
@@ -538,7 +570,10 @@ async function openRestoreModal(profileId) {
   select.innerHTML = '<option value="">Loading...</option>';
 
   try {
-    const response = await fetch('/api/available-profiles');
+    const [response] = await Promise.all([
+      fetch('/api/available-profiles'),
+      fetchRoxyProfileNames(),
+    ]);
     const profiles = await response.json();
 
     if (!response.ok) {
@@ -549,7 +584,7 @@ async function openRestoreModal(profileId) {
     profiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.name;
-      option.textContent = profile.name;
+      option.textContent = formatProfileLabel(profile.name);
       select.appendChild(option);
     });
   } catch (error) {
@@ -599,6 +634,117 @@ async function confirmRestore() {
     showToast(`Failed to restore profile: ${error.message}`, 'error');
   } finally {
     setButtonLoading(confirmBtn, false);
+  }
+}
+
+function setRunStepState(stepKey, state, detail) {
+  const stepEl = document.querySelector(`#runSteps .run-step[data-step="${stepKey}"]`);
+  if (!stepEl) return;
+  stepEl.classList.remove('is-running', 'is-done', 'is-error');
+  if (state === 'running') stepEl.classList.add('is-running');
+  if (state === 'done') stepEl.classList.add('is-done');
+  if (state === 'error') stepEl.classList.add('is-error');
+
+  const iconEl = stepEl.querySelector('.run-step-icon');
+  const originalNumber = stepEl.dataset.stepNumber || iconEl.dataset.number || iconEl.textContent;
+  if (!iconEl.dataset.number) iconEl.dataset.number = originalNumber;
+  if (state === 'running') {
+    iconEl.innerHTML =
+      '<span class="spinner" style="width:11px;height:11px;border-color:currentColor;border-top-color:transparent;"></span>';
+  } else if (state === 'done') {
+    iconEl.textContent = '✓';
+  } else if (state === 'error') {
+    iconEl.textContent = '✕';
+  } else {
+    iconEl.textContent = iconEl.dataset.number;
+  }
+
+  const detailEl = stepEl.querySelector('[data-step-detail]');
+  if (detailEl) {
+    detailEl.textContent = detail || '';
+  }
+}
+
+function resetRunSteps() {
+  for (const key of ['create', 'restore', 'open']) {
+    setRunStepState(key, 'pending', '');
+  }
+}
+
+function openRunModal(profileId) {
+  const modal = document.getElementById('runModal');
+  document.getElementById('runProfileId').textContent = profileId;
+  resetRunSteps();
+  const closeBtn = document.getElementById('closeRunBtn');
+  closeBtn.disabled = true;
+  modal.classList.remove('hidden');
+}
+
+function closeRunModal() {
+  document.getElementById('runModal').classList.add('hidden');
+}
+
+async function startRunFlow(profileId) {
+  openRunModal(profileId);
+
+  let dirId = '';
+  let workspaceId;
+
+  try {
+    setRunStepState('create', 'running', '');
+    const createResp = await fetch('/api/roxy/create-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceProfileId: profileId,
+        windowName: `Run from ${profileId.slice(0, 8)}`,
+      }),
+    });
+    const createData = await createResp.json();
+    if (!createResp.ok) throw new Error(createData.error || 'Failed to create Roxy profile');
+    dirId = createData.dirId;
+    workspaceId = createData.workspaceId;
+    let createDetail;
+    if (createData.reused) {
+      createDetail = `Reused existing profile: ${dirId}`;
+    } else if (createData.replacedPrevious) {
+      createDetail = `Replaced previous profile. New: ${dirId}`;
+    } else {
+      createDetail = `Created new profile: ${dirId}`;
+    }
+    setRunStepState('create', 'done', createDetail);
+
+    setRunStepState('restore', 'running', `Target: ${dirId}`);
+    const restoreResp = await fetch('/api/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId, targetFolderId: dirId }),
+    });
+    const restoreData = await restoreResp.json();
+    if (!restoreResp.ok) throw new Error(restoreData.error || 'Failed to restore backup');
+    setRunStepState('restore', 'done', `Restored into ${dirId}`);
+
+    setRunStepState('open', 'running', '');
+    const openResp = await fetch('/api/roxy/open-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dirId, workspaceId }),
+    });
+    const openData = await openResp.json();
+    if (!openResp.ok) throw new Error(openData.error || 'Failed to open browser');
+    const detail = openData.http ? `Browser running (${openData.http})` : 'Browser running';
+    setRunStepState('open', 'done', detail);
+
+    showToast('Profile is running!');
+  } catch (error) {
+    console.error('Run flow failed:', error);
+    const runningStep = document.querySelector('#runSteps .run-step.is-running');
+    if (runningStep) {
+      setRunStepState(runningStep.dataset.step, 'error', error.message);
+    }
+    showToast(`Run failed: ${error.message}`, 'error');
+  } finally {
+    document.getElementById('closeRunBtn').disabled = false;
   }
 }
 
@@ -938,6 +1084,7 @@ document.getElementById('nextBtn').addEventListener('click', () => {
 });
 
 document.getElementById('darkModeToggle').addEventListener('click', toggleDarkMode);
+document.getElementById('closeRunBtn').addEventListener('click', closeRunModal);
 
 initDarkMode();
 fetchProfiles(1);

@@ -403,6 +403,81 @@
       background-color: var(--danger-soft);
       border-color: var(--danger-border);
     }
+    .action-btn.warning {
+      color: var(--warning);
+    }
+    .action-btn.warning:hover {
+      background-color: var(--warning-soft);
+      border-color: var(--warning-border);
+    }
+
+    /* ---------- Run progress modal ---------- */
+    .run-step {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      background-color: var(--bg-surface);
+    }
+    .run-step + .run-step {
+      margin-top: 8px;
+    }
+    .run-step .run-step-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1.5px solid var(--border-strong);
+      color: var(--text-faint);
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .run-step .run-step-label {
+      flex: 1;
+      min-width: 0;
+    }
+    .run-step .run-step-detail {
+      font-size: 11.5px;
+      color: var(--text-faint);
+      margin-top: 2px;
+      word-break: break-all;
+    }
+    .run-step.is-running {
+      border-color: var(--info-border);
+      background-color: var(--info-soft);
+      color: var(--info);
+    }
+    .run-step.is-running .run-step-icon {
+      border: none;
+      background: transparent;
+    }
+    .run-step.is-done {
+      border-color: var(--success-border);
+      background-color: var(--success-soft);
+      color: var(--success);
+    }
+    .run-step.is-done .run-step-icon {
+      background-color: var(--success);
+      border-color: var(--success);
+      color: var(--text-on-accent);
+    }
+    .run-step.is-error {
+      border-color: var(--danger-border);
+      background-color: var(--danger-soft);
+      color: var(--danger);
+    }
+    .run-step.is-error .run-step-icon {
+      background-color: var(--danger);
+      border-color: var(--danger);
+      color: var(--text-on-accent);
+    }
 
     .row-description-input {
       width: 100%;
@@ -799,6 +874,44 @@
   </div>
 
   <div id="toastContainer"></div>
+
+  <div id="runModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Run profile</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Source backup</span>
+          <div id="runProfileId" class="mono" style="color: var(--text-primary); font-weight: 500;"></div>
+        </div>
+        <div id="runSteps">
+          <div class="run-step" data-step="create">
+            <span class="run-step-icon">1</span>
+            <div class="run-step-label">
+              <div>Prepare RoxyBrowser profile</div>
+              <div class="run-step-detail" data-step-detail></div>
+            </div>
+          </div>
+          <div class="run-step" data-step="restore">
+            <span class="run-step-icon">2</span>
+            <div class="run-step-label">
+              <div>Restore backup data into the new profile</div>
+              <div class="run-step-detail" data-step-detail></div>
+            </div>
+          </div>
+          <div class="run-step" data-step="open">
+            <span class="run-step-icon">3</span>
+            <div class="run-step-label">
+              <div>Open the browser</div>
+              <div class="run-step-detail" data-step-detail></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="closeRunBtn" class="btn" disabled>Close</button>
+      </div>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>
