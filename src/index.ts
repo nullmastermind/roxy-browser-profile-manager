@@ -355,9 +355,12 @@ app.post('/api/roxy/create-profile', async (req, res) => {
     }
 
     const workspaceId = await getFirstWorkspaceId();
-    const dirId = await createRoxyProfile(workspaceId, name, proxyInfo, {
-      randomFingerprint: true,
-    });
+    const dirId = await createRoxyProfile(
+      workspaceId,
+      name,
+      proxyInfo,
+      hasSource ? undefined : { randomFingerprint: true },
+    );
     await writeRunState({
       dirId,
       sourceProfileId: hasSource ? (sourceProfileId as string) : '__adhoc__',
