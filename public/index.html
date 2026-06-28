@@ -1083,10 +1083,52 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button id="manageRestoreBtn" class="btn">
+          <span class="btn-text">Restore from backup</span>
+        </button>
         <button id="refreshManageProfilesBtn" class="btn">
           <span class="btn-text">Refresh</span>
         </button>
         <button id="closeManageProfilesBtn" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="manageRestoreModal" class="hidden modal-overlay">
+    <div class="modal-card" style="max-width: 640px; width: 92vw;">
+      <div class="modal-header">Restore profile from backup</div>
+      <div class="modal-body">
+        <p class="modal-help" style="margin-bottom: 8px;">
+          Restores a backup into a new permanent RoxyBrowser profile. Backups already live are hidden.
+        </p>
+        <div id="manageRestoreList" class="roxy-profile-list">
+          <div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">Loading...</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="closeManageRestoreBtn" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="backupRoxyModal" class="hidden modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">Backup profile</div>
+      <div class="modal-body">
+        <div class="field">
+          <span class="modal-label">Profile</span>
+          <div id="backupRoxyLabel" class="mono" style="color: var(--text-primary); font-weight: 500;"></div>
+        </div>
+        <label class="flex items-center gap-2" style="margin-top: 10px; cursor: pointer;">
+          <input type="checkbox" id="backupRoxyDeleteAfter">
+          <span style="color: var(--text-secondary); font-size: 12.5px;">Delete RoxyBrowser profile after backup</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="cancelBackupRoxyBtn" class="btn">Cancel</button>
+        <button id="confirmBackupRoxyBtn" class="btn-primary">
+          <span class="btn-text">Backup</span>
+        </button>
       </div>
     </div>
   </div>

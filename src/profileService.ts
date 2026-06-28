@@ -48,7 +48,10 @@ export async function backupProfile(
 
   await ensureDirectoryExists(config.backupFolderPath);
 
-  if (existingProfile && targetProfileId) {
+  // When overwriting an explicit target, always wipe the destination first —
+  // even if there's no DB record (orphan folder or a previous failed copy) —
+  // so the overwrite is clean and a retry never merges stale files.
+  if (targetProfileId) {
     const backupExists = await directoryExists(destinationPath);
     if (backupExists) {
       await deleteDirectory(destinationPath);

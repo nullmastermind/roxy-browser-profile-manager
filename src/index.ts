@@ -476,6 +476,65 @@ app.post('/api/roxy/delete-profile', async (req, res) => {
   }
 });
 
+app.post('/api/roxy/restore-profile', async (req, res) => {
+  try {
+    const { profileId, windowName } = (req.body ?? {}) as {
+      profileId?: string;
+      windowName?: string;
+    };
+    if (!profileId || typeof profileId !== 'string') {
+      return res.status(400).json({ error: 'profileId is required' } as ErrorResponse);
+    }
+
+    const profile = await getProfileById(profileId);
+    if (!profile) {
+      return res.status(404).json({ error: 'Backup profile not found' } as ErrorResponse);
+    }
+
+    const name =
+      typeof windowName === 'string' && windowName.trim() !== ''
+        ? windowName.trim()
+        : (profile.description?.trim() ?? '') !== ''
+          ? (profile.description as string).trim()
+          : `Restored ${profileId.slice(0, 8)}`;
+
+    // Permanent restore: create a fresh Roxy profile WITHOUT touching run-state,
+    // then copy the backup into it. If the copy fails, roll back the empty
+    // profile we just created so nothing is left orphaned.
+    const workspaceId = await getFirstWorkspaceId();
+    const dirId = await createRoxyProfile(workspaceId, name, undefined, undefined);
+
+    try {
+      await restoreProfile(profileId, dirId);
+    } catch (restoreError) {
+      try {
+        await deleteRoxyProfile(workspaceId, [dirId]);
+      } catch (rollbackError) {
+        console.error('Failed to roll back profile after restore error:', rollbackError);
+      }
+      throw restoreError;
+    }
+
+    // Re-apply the proxy captured at backup time (best-effort).
+    let proxyApplied = false;
+    try {
+      const meta = await readBackupMeta(profileId);
+      if (meta?.proxyInfo && config.roxyBrowserApiKey) {
+        await modifyRoxyProxy(workspaceId, dirId, meta.proxyInfo);
+        proxyApplied = true;
+      }
+    } catch (proxyError) {
+      console.error('Failed to apply proxy from backup (continuing):', proxyError);
+    }
+
+    res.json({ success: true, dirId, workspaceId, proxyApplied });
+  } catch (error) {
+    console.error('Error restoring Roxy profile:', error);
+    const message = error instanceof Error ? error.message : 'Failed to restore profile';
+    res.status(500).json({ error: message } as ErrorResponse);
+  }
+});
+
 app.post('/api/backup', async (req, res) => {
   try {
     const { sourceProfileId, targetProfileId, description } = req.body as BackupRequest;

@@ -1091,6 +1091,14 @@ function renderManageProfiles() {
         <div class="roxy-profile-tags">${escapeHtml(metaParts.join(' · '))}</div>
       </div>
       <div class="roxy-profile-actions">
+        <button class="action-btn warning run-roxy-btn" data-dir-id="${escapeHtml(profile.dirId)}" data-workspace-id="${profile.workspaceId}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          <span class="btn-text">Run</span>
+        </button>
+        <button class="action-btn success backup-roxy-btn" data-dir-id="${escapeHtml(profile.dirId)}" data-workspace-id="${profile.workspaceId}" data-name="${escapeHtml(profile.windowName || '')}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span class="btn-text">Backup</span>
+        </button>
         <button class="action-btn info edit-proxy-btn" data-dir-id="${escapeHtml(profile.dirId)}" data-workspace-id="${profile.workspaceId}" data-name="${escapeHtml(profile.windowName || '')}">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
           Edit proxy
@@ -1104,6 +1112,22 @@ function renderManageProfiles() {
     list.appendChild(item);
   }
 
+  for (const btn of document.querySelectorAll('.run-roxy-btn')) {
+    btn.addEventListener('click', (e) => {
+      const t = e.currentTarget;
+      runRoxyProfile(t, { dirId: t.dataset.dirId, workspaceId: Number(t.dataset.workspaceId) });
+    });
+  }
+  for (const btn of document.querySelectorAll('.backup-roxy-btn')) {
+    btn.addEventListener('click', (e) => {
+      const t = e.currentTarget;
+      openBackupRoxyModal({
+        dirId: t.dataset.dirId,
+        workspaceId: Number(t.dataset.workspaceId),
+        windowName: t.dataset.name,
+      });
+    });
+  }
   for (const btn of document.querySelectorAll('.edit-proxy-btn')) {
     btn.addEventListener('click', (e) => {
       const t = e.currentTarget;
@@ -1423,6 +1447,170 @@ function confirmDeleteRoxyProfile({ dirId, workspaceId, windowName }) {
       setButtonLoading(btn, false);
     }
   });
+}
+
+async function runRoxyProfile(btn, { dirId, workspaceId }) {
+  setButtonLoading(btn, true);
+  try {
+    const response = await fetch('/api/roxy/open-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dirId, workspaceId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to open profile');
+    showToast(data.http ? `Profile is running (${data.http})` : 'Profile is running');
+  } catch (error) {
+    console.error('Error running Roxy profile:', error);
+    showToast(`Failed to run: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(btn, false);
+  }
+}
+
+let backupRoxyTarget = null;
+
+function openBackupRoxyModal({ dirId, workspaceId, windowName }) {
+  backupRoxyTarget = { dirId, workspaceId, windowName };
+  document.getElementById('backupRoxyLabel').textContent =
+    `${windowName || '(no name)'} (${dirId})`;
+  document.getElementById('backupRoxyDeleteAfter').checked = false;
+  document.getElementById('backupRoxyModal').classList.remove('hidden');
+}
+
+function closeBackupRoxyModal() {
+  document.getElementById('backupRoxyModal').classList.add('hidden');
+  backupRoxyTarget = null;
+}
+
+async function confirmBackupRoxy() {
+  if (!backupRoxyTarget) return;
+  const { dirId, workspaceId, windowName } = backupRoxyTarget;
+  const deleteAfter = document.getElementById('backupRoxyDeleteAfter').checked;
+  const confirmBtn = document.getElementById('confirmBackupRoxyBtn');
+
+  setButtonLoading(confirmBtn, true);
+  try {
+    const requestBody = { sourceProfileId: dirId, targetProfileId: dirId };
+    // Save the profile name into the backup's description (new or overwritten).
+    if (windowName && windowName.trim() !== '') {
+      requestBody.description = windowName.trim();
+    }
+    const response = await fetch('/api/backup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to backup profile');
+    showToast('Profile backed up successfully!');
+
+    if (deleteAfter) {
+      try {
+        const delResp = await fetch('/api/roxy/delete-profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId, dirId }),
+        });
+        const delData = await delResp.json();
+        if (!delResp.ok) throw new Error(delData.error || 'Failed to delete RoxyBrowser profile');
+        delete roxyProfileNames[dirId];
+        manageProfilesData = manageProfilesData.filter((p) => p.dirId !== dirId);
+        renderManageProfiles();
+        showToast('RoxyBrowser profile deleted');
+      } catch (delError) {
+        console.error('Failed to delete Roxy profile after backup:', delError);
+        showToast(`Backup OK, but delete failed: ${delError.message}`, 'error');
+      }
+    }
+
+    closeBackupRoxyModal();
+    fetchProfiles(currentPage);
+    fetchProfileProxyInfo().then(() => fetchProfiles(currentPage));
+  } catch (error) {
+    console.error('Error backing up Roxy profile:', error);
+    showToast(`Failed to backup profile: ${error.message}`, 'error');
+  } finally {
+    setButtonLoading(confirmBtn, false);
+  }
+}
+
+async function openManageRestoreModal() {
+  document.getElementById('manageRestoreModal').classList.remove('hidden');
+  const list = document.getElementById('manageRestoreList');
+  list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">Loading...</div>`;
+
+  try {
+    const [profilesResponse] = await Promise.all([
+      fetch('/api/profiles?page=1&pageSize=1000'),
+      // Refresh the live list so the filter below is accurate.
+      loadManageProfiles(),
+    ]);
+    const data = await profilesResponse.json();
+    if (!profilesResponse.ok) throw new Error(data.error || 'Failed to load backups');
+
+    const liveDirIds = new Set(manageProfilesData.map((p) => p.dirId));
+    const restorable = (data.profiles || []).filter((p) => !liveDirIds.has(p.profileId));
+    renderManageRestoreList(restorable);
+  } catch (error) {
+    console.error('Error loading restorable backups:', error);
+    list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--danger); font-size: 12px;">${escapeHtml(error.message)}</div>`;
+  }
+}
+
+function closeManageRestoreModal() {
+  document.getElementById('manageRestoreModal').classList.add('hidden');
+}
+
+function renderManageRestoreList(backups) {
+  const list = document.getElementById('manageRestoreList');
+  if (!backups || backups.length === 0) {
+    list.innerHTML = `<div class="px-3 py-6 text-center" style="color: var(--text-faint); font-size: 12px;">No backups to restore</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  for (const backup of backups) {
+    const label = roxyProfileNames[backup.profileId] || backup.description || '(no name)';
+    const item = document.createElement('div');
+    item.className = 'roxy-profile-item';
+    item.innerHTML = `
+      <div class="roxy-profile-meta">
+        <div class="roxy-profile-name">${escapeHtml(label)}</div>
+        <div class="roxy-profile-id">${escapeHtml(backup.profileId)}</div>
+      </div>
+      <div class="roxy-profile-actions">
+        <button class="action-btn info restore-backup-btn" data-profile-id="${escapeHtml(backup.profileId)}">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M3 9v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9"/><polyline points="7 12 12 17 17 12"/><line x1="12" y1="17" x2="12" y2="3"/></svg>
+          <span class="btn-text">Restore</span>
+        </button>
+      </div>
+    `;
+    list.appendChild(item);
+  }
+  for (const btn of document.querySelectorAll('.restore-backup-btn')) {
+    btn.addEventListener('click', (e) => restoreBackupToNewProfile(e.currentTarget));
+  }
+}
+
+async function restoreBackupToNewProfile(btn) {
+  const profileId = btn.dataset.profileId;
+  setButtonLoading(btn, true);
+  try {
+    const response = await fetch('/api/roxy/restore-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Failed to restore profile');
+    showToast(`Restored as new profile ${data.dirId}`);
+    closeManageRestoreModal();
+    loadManageProfiles();
+  } catch (error) {
+    console.error('Error restoring backup to new profile:', error);
+    showToast(`Failed to restore: ${error.message}`, 'error');
+    setButtonLoading(btn, false);
+  }
 }
 
 function formatDate(dateString) {
@@ -1790,6 +1978,10 @@ document
   .getElementById('closeManageProfilesBtn')
   .addEventListener('click', closeManageProfilesModal);
 document.getElementById('refreshManageProfilesBtn').addEventListener('click', loadManageProfiles);
+document.getElementById('manageRestoreBtn').addEventListener('click', openManageRestoreModal);
+document.getElementById('closeManageRestoreBtn').addEventListener('click', closeManageRestoreModal);
+document.getElementById('cancelBackupRoxyBtn').addEventListener('click', closeBackupRoxyModal);
+document.getElementById('confirmBackupRoxyBtn').addEventListener('click', confirmBackupRoxy);
 document.getElementById('cancelEditProxyBtn').addEventListener('click', closeEditProxyModal);
 document.getElementById('confirmEditProxyBtn').addEventListener('click', submitEditProxy);
 document.getElementById('cleanOrphansBtn').addEventListener('click', openOrphanFoldersModal);

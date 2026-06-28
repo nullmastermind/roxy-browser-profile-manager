@@ -21,3 +21,5 @@ UI_UX,layout,"Full-screen layout, no body padding/margin; dense compact layouts,
 UI_UX,theming,"Colors come from CSS custom properties in :root with body.dark-mode overrides; use --accent/--danger/--success vars, not hardcoded hex, for theme-aware UI.",0.85
 UI_UX,loading-states,"All async action buttons must show loading state (spinner/disabled/loading text) during the operation.",0.9
 DECISION_STYLE,no-docs,"Do not create markdown docs, summaries, examples, or README files unless explicitly asked. Functional files only.",0.95
+CONVENTION,atomic-rollback,"Multi-step ops that create a Roxy profile then do follow-up work (copy/restore) must roll back the created profile (deleteRoxyProfile) if a later step throws, so no empty orphan profile is left.",0.8
+DECISION_STYLE,backup-reuse,"Backups are reusable artifacts: a backup can be restored many times; restore mints a NEW dirId and does not consume/lineage-track the backup. Restore-picker filters backup.profileId against live dirIds only.",0.8

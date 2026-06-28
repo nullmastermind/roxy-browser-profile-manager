@@ -62,3 +62,5 @@ ESM with TypeScript `NodeNext`. **Relative imports use `.js` extensions even tho
 ### Frontend
 
 `public/app.js` is vanilla JS that talks to the `/api/*` endpoints. There is no bundler, no framework, no transpile step for frontend code. Edit it directly.
+
+When you need to read a specific file but don't know the exact line range, use the file-retrieval MCP tool instead of reading the entire file. Describe what information you need and it returns only the relevant snippets with line numbers. Use the Read tool with the returned line ranges (expanded as needed) to get current content before making edits.
