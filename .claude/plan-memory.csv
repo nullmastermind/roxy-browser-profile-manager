@@ -1,0 +1,23 @@
+category,topic,note,score
+DECISION_STYLE,simplicity,"Project follows Linus/minimal taste: implement only what's needed now, no 'just in case' features, no over-engineering or premature abstraction.",0.9
+DECISION_STYLE,reuse-vs-build,"Reuse existing helpers (fileUtils, database, roxyApi) and compose them rather than hand-rolling new disk/db logic.",0.8
+DECISION_STYLE,data-first,"Design data structures and function signatures before logic (Data Structures First); types live in src/types.ts.",0.85
+CONVENTION,architecture,"Single Express process in src/index.ts defines all /api/* routes inline; static frontend served from public/. No router split, no controllers.",0.95
+CONVENTION,layering,"profileService.ts orchestrates fileUtils.ts (disk) + database.ts (Prisma); neither lower layer knows about the other. New profile ops follow this split.",0.9
+CONVENTION,imports,"ESM NodeNext: relative imports MUST use .js extension even for .ts source files (e.g. './config.js').",1.0
+CONVENTION,prisma-client,"Prisma client output is generated/prisma (not node_modules); import from '../generated/prisma/client.js'. Don't delete without regenerating.",0.95
+CONVENTION,bigint,"Profile.backupSizeInBytes is BigInt; Express has a global 'json replacer' serializing BigInt to string. Client must parse strings back for math.",0.9
+CONVENTION,error-handling,"Every route wraps body in try/catch, logs via console.error, returns res.status(4xx/5xx).json({error}) typed as ErrorResponse; extract message via error instanceof Error.",0.95
+CONVENTION,validation,"Routes manually validate inputs (typeof checks, path-traversal guards with path.resolve + startsWith) inline; no validation library.",0.85
+CONVENTION,roxy-api,"All RoxyBrowser HTTP calls go through roxyApi.ts roxyGet/roxyPost helpers; responses checked for code===0 else throw with res.msg.",0.9
+CONVENTION,metadata-storage,"Per-profile sidecar metadata (proxy/window) stored as JSON files in backup .meta/ dir (backupMeta.ts) and .run-state.json (runState.ts); SQLite holds only Profile/Tag/ProfileTag.",0.85
+CONVENTION,config,"All env access centralized in src/config.ts; throws on missing ROXY_BROWSER_PATH at startup. Add new env vars here.",0.9
+CONVENTION,best-effort-side-effects,"Secondary side-effects (capturing proxy meta on backup, applying proxy on restore) are wrapped in inner try/catch that logs and continues — main op never fails because of them.",0.85
+CONVENTION,verification,"After writing code run 'bun run lint' (biome, never --unsafe, fix manually) then 'bun run build' (tsc). Prisma schema edits require 'bun run prisma:migrate'.",1.0
+CONVENTION,frontend-stack,"public/app.js is vanilla JS, no framework/bundler/transpile; Tailwind via CDN + CSS vars in index.html. Edit directly. Use escapeHtml() for user content.",0.9
+UI_UX,no-shadow,"Never use box-shadow; use borders to define boundaries. Confirmed: app.js/index.html have zero box-shadow usages.",0.95
+UI_UX,no-alert,"Never use alert()/native dialogs; use showToast(message, type) for feedback. Confirmed: zero alert() in app.js.",0.95
+UI_UX,layout,"Full-screen layout, no body padding/margin; dense compact layouts, font-size 13px base; minimize spacing.",0.9
+UI_UX,theming,"Colors come from CSS custom properties in :root with body.dark-mode overrides; use --accent/--danger/--success vars, not hardcoded hex, for theme-aware UI.",0.85
+UI_UX,loading-states,"All async action buttons must show loading state (spinner/disabled/loading text) during the operation.",0.9
+DECISION_STYLE,no-docs,"Do not create markdown docs, summaries, examples, or README files unless explicitly asked. Functional files only.",0.95

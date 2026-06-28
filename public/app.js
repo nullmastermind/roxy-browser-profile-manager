@@ -7,6 +7,7 @@ let currentTagFilters = [];
 let currentTagFilterMode = 'AND';
 let roxyProfileNames = {};
 let lastAutoBackupDescription = '';
+let backupTargetDescriptions = {};
 let orphanFolders = [];
 let profileProxyInfo = {};
 
@@ -65,11 +66,38 @@ function updateOrphanFoldersUI(availableProfiles) {
 function autoFillBackupDescription(sourceId) {
   const input = document.getElementById('descriptionInput');
   if (!input) return;
+  // Once a target backup is selected, the description belongs to the target —
+  // don't let the source name overwrite it.
+  const targetSelect = document.getElementById('targetProfileSelect');
+  if (targetSelect?.value) return;
   const name = sourceId ? roxyProfileNames[sourceId] : '';
   if (!name) return;
   if (input.value === '' || input.value === lastAutoBackupDescription) {
     input.value = name;
     lastAutoBackupDescription = name;
+  }
+}
+
+// When a target backup is (de)selected, the description box ownership switches:
+// selected -> show the target's existing description; deselected -> resume source auto-fill.
+function applyTargetDescription(targetId) {
+  const input = document.getElementById('descriptionInput');
+  if (!input) return;
+  if (targetId) {
+    // Only override the box if it still holds a system-filled value (empty or the
+    // last auto-fill) — never clobber text the user typed by hand.
+    if (input.value === '' || input.value === lastAutoBackupDescription) {
+      const targetDesc = backupTargetDescriptions[targetId] || '';
+      input.value = targetDesc;
+      lastAutoBackupDescription = targetDesc;
+    }
+  } else {
+    // Back to "create new backup": clear the stale target desc, then re-apply source.
+    if (input.value === lastAutoBackupDescription) {
+      input.value = '';
+      lastAutoBackupDescription = '';
+    }
+    autoFillBackupDescription(document.getElementById('profileSelect').value);
   }
 }
 
@@ -486,11 +514,13 @@ async function openBackupModal() {
     updateOrphanFoldersUI(availableProfiles);
 
     targetSelect.innerHTML = '<option value="">Create new backup</option>';
+    backupTargetDescriptions = {};
     backedUpData.profiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.profileId;
       option.textContent = formatProfileLabel(profile.profileId);
       targetSelect.appendChild(option);
+      backupTargetDescriptions[profile.profileId] = profile.description || '';
     });
   } catch (error) {
     console.error('Error fetching profiles:', error);
@@ -536,14 +566,17 @@ async function openBackupModalWithTarget(targetProfileId) {
     updateOrphanFoldersUI(availableProfiles);
 
     targetSelect.innerHTML = '<option value="">Create new backup</option>';
+    backupTargetDescriptions = {};
     backedUpData.profiles.forEach((profile) => {
       const option = document.createElement('option');
       option.value = profile.profileId;
       option.textContent = formatProfileLabel(profile.profileId);
       targetSelect.appendChild(option);
+      backupTargetDescriptions[profile.profileId] = profile.description || '';
     });
 
     targetSelect.value = targetProfileId;
+    applyTargetDescription(targetProfileId);
   } catch (error) {
     console.error('Error fetching profiles:', error);
     showToast(`Failed to load profiles: ${error.message}`, 'error');
@@ -558,6 +591,7 @@ function closeBackupModal() {
   document.getElementById('descriptionInput').value = '';
   document.getElementById('deleteAfterBackupCheckbox').checked = false;
   lastAutoBackupDescription = '';
+  backupTargetDescriptions = {};
 }
 
 async function confirmBackup() {
@@ -616,9 +650,17 @@ async function performBackup(
   setButtonLoading(confirmBtn, true);
 
   try {
-    const requestBody = { sourceProfileId, description };
+    const requestBody = { sourceProfileId };
     if (targetProfileId) {
       requestBody.targetProfileId = targetProfileId;
+      // Only send a description when overwriting if the user actually changed it.
+      // Sending the unchanged value would needlessly rewrite the target's desc,
+      // and an empty box must not clobber the target's existing description.
+      if (description !== (backupTargetDescriptions[targetProfileId] || '')) {
+        requestBody.description = description;
+      }
+    } else {
+      requestBody.description = description;
     }
 
     const response = await fetch('/api/backup', {
@@ -1756,6 +1798,9 @@ document.getElementById('cancelProfileProxyBtn').addEventListener('click', close
 document.getElementById('confirmProfileProxyBtn').addEventListener('click', submitProfileProxy);
 document.getElementById('profileSelect').addEventListener('change', (e) => {
   autoFillBackupDescription(e.target.value);
+});
+document.getElementById('targetProfileSelect').addEventListener('change', (e) => {
+  applyTargetDescription(e.target.value);
 });
 
 initDarkMode();
