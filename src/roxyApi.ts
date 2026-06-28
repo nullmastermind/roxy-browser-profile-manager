@@ -339,9 +339,33 @@ export async function modifyRoxyProxy(
   const res = await roxyPost<ModifyProfileResponse>('/browser/mdf', {
     workspaceId,
     dirId,
-    proxyInfo,
+    proxyInfo: sanitizeProxyInfo(proxyInfo),
   });
   if (res.code !== 0) {
     throw new Error(`Roxy /browser/mdf failed: ${res.msg ?? 'unknown error'}`);
   }
+}
+
+// proxyInfo from /browser/detail carries display-only fields (e.g. checkChannel)
+// that /browser/mdf rejects. Project onto the declared ProxyInfo keys before
+// sending — copying only defined fields so a null/undefined/empty input is safe.
+function sanitizeProxyInfo(proxyInfo: ProxyInfo | null | undefined): ProxyInfo {
+  const source = (proxyInfo ?? {}) as Record<string, unknown>;
+  const allowed: Array<keyof ProxyInfo> = [
+    'moduleId',
+    'proxyMethod',
+    'proxyCategory',
+    'ipType',
+    'host',
+    'port',
+    'proxyUserName',
+    'proxyPassword',
+  ];
+  const out: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (source[key] !== undefined) {
+      out[key] = source[key];
+    }
+  }
+  return out as ProxyInfo;
 }

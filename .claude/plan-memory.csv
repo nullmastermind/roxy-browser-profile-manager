@@ -10,6 +10,7 @@ CONVENTION,bigint,"Profile.backupSizeInBytes is BigInt; Express has a global 'js
 CONVENTION,error-handling,"Every route wraps body in try/catch, logs via console.error, returns res.status(4xx/5xx).json({error}) typed as ErrorResponse; extract message via error instanceof Error.",0.95
 CONVENTION,validation,"Routes manually validate inputs (typeof checks, path-traversal guards with path.resolve + startsWith) inline; no validation library.",0.85
 CONVENTION,roxy-api,"All RoxyBrowser HTTP calls go through roxyApi.ts roxyGet/roxyPost helpers; responses checked for code===0 else throw with res.msg.",0.9
+CORRECTION,proxy-roundtrip,"proxyInfo from /browser/detail is NOT valid input for /browser/mdf — it carries display-only fields (e.g. checkChannel) that mdf rejects; modifyRoxyProxy whitelists to the 8 ProxyInfo keys before sending.",0.9
 CONVENTION,metadata-storage,"Per-profile sidecar metadata (proxy/window) stored as JSON files in backup .meta/ dir (backupMeta.ts) and .run-state.json (runState.ts); SQLite holds only Profile/Tag/ProfileTag.",0.85
 CONVENTION,config,"All env access centralized in src/config.ts; throws on missing ROXY_BROWSER_PATH at startup. Add new env vars here.",0.9
 CONVENTION,best-effort-side-effects,"Secondary side-effects (capturing proxy meta on backup, applying proxy on restore) are wrapped in inner try/catch that logs and continues — main op never fails because of them.",0.85
